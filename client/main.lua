@@ -17,7 +17,11 @@ end
 
 local function randomNum(min, max)
   math.randomseed(GetGameTimer())
-  return math.floor((math.random() * (max - min) + min) + 0.5)
+  local num = math.random() * (max - min) + min
+  if num % 1 >= 0.5 and math.ceil(num) <= max then
+    return math.ceil(num)
+  end
+  return math.floor(num)
 end
 
 local function isStoreHit(vitrine, isStore)
@@ -158,13 +162,6 @@ local function getCamID(k)
   return camID
 end
 
-local function toggleCams(state)
-  local ids = {31, 32, 33, 34}
-  for k, v in pairs(ids) do
-    TriggerEvent('police:client:SetCamera', v, state)
-  end
-end
-
 local function alertsCD(alertType)
   local data = exports['cd_dispatch']:GetPlayerInfo()
   if alertType == 'robbery' then
@@ -244,10 +241,7 @@ local function addSkillToPlayer(hack)
   local skill = exports[Config.Skills.system]:GetCurrentSkill(Config.Skills[hack].skill)
   local currXP = skill['Current']
   if currXP <= 0 then currXP = 1 end
-  -- To change the amount of dynamic xp gained, change the 0.001 to a number between 0.1 and 0.000001
-  -- The closer to 0 the number is, the more xp you will get
-  -- For ease of use, just use 0.001, 0.0001, 0.00001, 0.000001 etc.
-  local xp = math.floor(reward * multi * (currXP * 0.00001))
+  local xp = math.floor(reward * multi * (currXP * 0.001))
   if xp < reward then xp = reward end
   exports[Config.Skills.system]:UpdateSkill(Config.Skills[hack].skill, xp)
 end
@@ -423,8 +417,8 @@ AddEventHandler('don-jewellery:client:Thermite', function(store)
               bridge.notify.text(Lang:t('error.fingerprints'), 'error')
             end
             SetEntityHeading(ped, Config.Stores[store]['Thermite'].h)
-            exports['ps-ui']:Thermite(function(success) -- success
-              if success then
+            local success = exports['glitch-minigames']:StartMemoryGame(Config.ThermiteSettings.gridsize, Config.ThermiteSettings.squareCount, Config.ThermiteSettings.rounds, Config.ThermiteSettings.showtime, Config.ThermiteSettings.incorrectBlocks)
+            if success then
                 TriggerServerEvent('don-jewellery:server:StoreHit', store, true)    
                 bridge.notify.text(Lang:t('success.thermite'), 'success')
                 local loc = Config.Stores[store]['Thermite'].anim
@@ -523,8 +517,8 @@ AddEventHandler('don-jewellery:client:HackSecurity', function()
             --     TriggerServerEvent("evidence:server:CreateFingerDrop", targetPosition)
             -- end
             Wait(2500)
-            exports['ps-ui']:VarHack(function(success)
-              if success then
+            local success = exports['glitch-minigames']:StartPipePressureGame(Config.VarHackSettings.gridsize, Config.VarHackSettings.time)
+            if success then
                 if Config.Skills.enabled then addSkillToPlayer('Hack') end
                 hacking = false
                 TriggerServerEvent('don-jewellery:server:StoreHit', 'all', true)

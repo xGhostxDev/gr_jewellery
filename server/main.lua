@@ -11,7 +11,11 @@ local Flags = {}
 
 local function randomNum(min, max)
   math.randomseed(os.time())
-  return math.floor((math.random() * (max - min) + min) + 0.5)
+  local num = math.random() * (max - min) + min
+  if num % 1 >= 0.5 and math.ceil(num) <= max then
+    return math.ceil(num)
+  end
+  return math.floor(num)
 end
 
 local function exploitBan(id, reason)

@@ -26,6 +26,7 @@ dependencies {
   'gr_lib',
   'bridge',
   'ox_lib',
+  'glitch-minigames',
   'oxmysql'
 }
 

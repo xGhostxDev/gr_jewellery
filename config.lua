@@ -4,7 +4,7 @@ Config.OneStore = true -- Set to true if using just the main Vangelico's Jewelle
 Config.Cooldown = 5 * (60 * 2000) -- where x is minutes ie. x * (60 * 2000) \\ For door auto lock function
 Config.Timeout = 5 * (60 * 2000) -- where x is minutes ie. x * (60 * 2000) \\ For case smashing cooldown
 Config.AutoLock = true -- Set to false if you don't want the doors to auto lock/lock at all
-Config.RequiredCops = 0
+Config.RequiredCops = 3
 
 Config.VangelicoHours = { -- Store Hours
   range = { -- Set both to 0 if you want the store to be robbed 24/7
@@ -111,15 +111,17 @@ Config.Stores = {
 
 Config.DoorItem = 'thermite' -- item to remove\check for when placing a charge
 Config.ThermiteSettings = {
-  time = 60, -- time the hack displays for \\ half being showing the puzzle and the other solving
   gridsize = 5, -- (5, 6, 7, 8, 9, 10) size of grid by square units, ie. gridsize = 5 is a 5 * 5 (25) square grid
+  squareCount = 4, -- number of squares to complete the game 
+  rounds = 3, -- number of rounds to complete the game
+  showtime = 3000 ,-- time showing the puzzle in ms 1000 = 1 second
   incorrectBlocks = 10 -- incorrectBlocks = number of incorrect blocks after which the game will fail
 }
 
 Config.HackItem = 'phone' -- item to remove\check for when hacking
 Config.VarHackSettings = {
-  blocks = 2, -- time the hack displays for \\ half being showing the puzzle and the other solving
-  time = 20 -- time the hack displays for
+  gridsize = 6, -- grid size for the minigame
+  time = 30000 -- time limit for the minigame in ms
 }
 
 Config.WhitelistedWeapons = {
