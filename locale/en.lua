@@ -11,8 +11,8 @@ local Translations = {
         too_far = 'You\'re too far away..',
         stores_open = 'I should try after the store closes..',
         fail_hack = 'You failed to hack the security system..',
-        skill_fail = 'Your %{value} skill is not high enough..',
         store_hit = 'Looks like the fuse box is already blown..'
+        skill_fail = 'Your %{value} skill is not high enough..'
     },
     success = {
         thermite = 'You applied the thermite correctly..',
@@ -33,7 +33,29 @@ local Translations = {
     }
 }
 
-Lang = Lang or Locale:new({
-    phrases = Translations,
-    warnOnMissing = true
-})
+-- Simple locale system
+Lang = Lang or {}
+Lang.Locale = 'en'
+
+function Lang:t(str, args)
+    local keys = {}
+    for key in string.gmatch(str, '([^.]+)') do
+        table.insert(keys, key)
+    end
+    
+    local value = Translations
+    for _, key in ipairs(keys) do
+        value = value[key]
+        if not value then
+            return str
+        end
+    end
+    
+    if type(value) == 'string' and args then
+        for k, v in pairs(args) do
+            value = value:gsub('%%{' .. k .. '}', tostring(v))
+        end
+    end
+    
+    return value
+end
