@@ -1,5 +1,3 @@
-local QBCore = exports['qb-core']:GetCoreObject()
-
 local TimeOuts = {
   [1] = false,
   [2] = false,
@@ -20,9 +18,9 @@ local function exploitBan(id, reason)
   MySQL.insert('INSERT INTO bans (name, license, discord, ip, reason, expire, bannedby) VALUES (?, ?, ?, ?, ?, ?, ?)',
     {
       GetPlayerName(id),
-      QBCore.Functions.GetIdentifier(id, 'license'),
-      QBCore.Functions.GetIdentifier(id, 'discord'),
-      QBCore.Functions.GetIdentifier(id, 'ip'),
+      bridge.core.getplayeridentifier(id),
+      ('discord:' .. (GetPlayerIdentifierByType(id, 'discord') or 'N/A')),
+      GetPlayerIdentifierByType(id, 'ip') or 'N/A',
       reason,
       2147483647,
       'don-jewellery'
@@ -37,10 +35,10 @@ end
 
 RegisterServerEvent('don-jewellery:server:RemoveDoorItem', function()
   local src = source
-  local Player = QBCore.Functions.GetPlayer(src)
+  local Player = bridge.core.getplayer(src)
   local item = Config.DoorItem
   if not Player then return end
-  Player.Functions.RemoveItem(item, 1)
+  bridge.core.removeplayeritem(src, item, 1)
 end)
 
 RegisterServerEvent('don-jewellery:server:SetVitrineState', function(stateType, state, k)
@@ -52,7 +50,7 @@ end)
 
 RegisterServerEvent('don-jewellery:server:StoreHit', function(storeIndex, bool)
   local src = source
-  local Player = QBCore.Functions.GetPlayer(src)
+  local Player = bridge.core.getplayer(src)
   if not Player then return end
   TriggerClientEvent('don-jewellery:client:StoreHit', -1, storeIndex, bool)
   if storeIndex == 'all' then Config.Stores[1].hacked = bool end
@@ -99,7 +97,7 @@ end)
 
 RegisterServerEvent('don-jewellery:server:VitrineReward', function(vitrineIndex)
   local src = source
-  local Player = QBCore.Functions.GetPlayer(src)
+  local Player = bridge.core.getplayer(src)
   local cheating = false
   if not Config.Vitrines[vitrineIndex] or Config.Vitrines[vitrineIndex].isOpened then 
     exploitBan(src, 'Trying to trigger an exploitable event \"don-jewellery:server:VitrineReward\"') 
@@ -121,11 +119,10 @@ RegisterServerEvent('don-jewellery:server:VitrineReward', function(vitrineIndex)
 
         local reward = Config.VitrineRewards[randomNum(1, #Config.VitrineRewards)]
         local amount = randomNum(reward['Amounts'].min, reward['Amounts'].max)
-        if Player.Functions.AddItem(reward.item, amount) then
-          TriggerClientEvent('inventory:client:ItemBox', src, QBCore.Shared.Items[reward.item], 'add')
-          TriggerEvent('qb-log:server:CreateLog', 'donjewellery', 'Jewellery Robbery', 'red', ('**Name:** %s | **License:** ||(%s)||\n **Info:** Robbed a [Jewellery Case] and received (%s) %s '):format(GetPlayerName(src), Player.PlayerData.license, amount, reward.item))
+        if bridge.core.addplayeritem(src, reward.item, amount) then
+          bridge.notify.item(src, reward.item, amount)
         else
-          TriggerClientEvent('QBCore:Notify', src, Lang:t('error.to_much'), 'error')
+          bridge.notify.text(src, Lang:t('error.to_much'), 'error')
         end
       else
         cheating = true
@@ -136,7 +133,7 @@ RegisterServerEvent('don-jewellery:server:VitrineReward', function(vitrineIndex)
   end
 
   if cheating then
-    local license = Player.PlayerData.license
+    local license = bridge.core.getplayeridentifier(src)
     if Flags[license] then
       Flags[license] = Flags[license] + 1
     else
@@ -182,19 +179,23 @@ end)
 
 -------------------------------- CALLBACKS --------------------------------
 
-QBCore.Functions.CreateCallback('don-jewellery:server:GetCops', function(source, cb)
+lib.callback.register('don-jewellery:server:GetCops', function(source)
   local src = source
 	local amount = 0
-  for _, v in pairs(QBCore.Functions.GetQBPlayers()) do
-    if v.PlayerData.job.name == "police" and v.PlayerData.job.onduty then
-      amount = amount + 1
+  for _, playerId in ipairs(GetPlayers()) do
+    local id = tonumber(playerId)
+    if id then
+      local job = bridge.core.getplayerjob(id)
+      if job and bridge.core.doesplayerhavegroup(id, 'leo') then
+        amount = amount + 1
+      end
     end
   end
   CachedPoliceAmount[src] = amount
-  cb(amount)
+  return amount
 end)
 
-QBCore.Functions.CreateCallback('don-jewellery:server:GetJewelleryState', function(_, cb)
+lib.callback.register('don-jewellery:server:GetJewelleryState', function()
   local data = {Locations = Config.Vitrines, Hacks = Config.Stores}
-	cb(data)
+	return data
 end)
