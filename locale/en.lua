@@ -11,7 +11,7 @@ local Translations = {
         too_far = 'You\'re too far away..',
         stores_open = 'I should try after the store closes..',
         fail_hack = 'You failed to hack the security system..',
-        store_hit = 'Looks like the fuse box is already blown..'
+        store_hit = 'Looks like the fuse box is already blown..',
         skill_fail = 'Your %{value} skill is not high enough..'
     },
     success = {
