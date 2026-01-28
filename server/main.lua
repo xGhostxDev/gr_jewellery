@@ -183,7 +183,7 @@ end)
 
 -------------------------------- CALLBACKS --------------------------------
 
-lib.callback.register('don-jewellery:server:GetCops', function(source)
+bridge.callback.register('don-jewellery:server:GetCops', function(source)
   local src = source
 	local amount = 0
   for _, playerId in ipairs(GetPlayers()) do
@@ -199,7 +199,7 @@ lib.callback.register('don-jewellery:server:GetCops', function(source)
   return amount
 end)
 
-lib.callback.register('don-jewellery:server:GetJewelleryState', function()
+bridge.callback.register('don-jewellery:server:GetJewelleryState', function()
   local data = {Locations = Config.Vitrines, Hacks = Config.Stores}
 	return data
 end)
