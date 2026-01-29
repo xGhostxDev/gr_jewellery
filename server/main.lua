@@ -1,3 +1,9 @@
+local RES_NAME <const> = bridge._RESOURCE
+local DEBUG_MODE <const> = bridge._DEBUG
+local JEWELLERY_CASES <const> = glib.require(RES_NAME..'.shared.jewellery_cases') --[[@module 'gr_jewellery.shared.jewellery_cases']]
+
+local Cases = {}
+
 local TimeOuts = {
   [1] = false,
   [2] = false,
@@ -7,7 +13,39 @@ local TimeOuts = {
 local CachedPoliceAmount = {}
 local Flags = {}
 
+
 -------------------------------- FUNCTIONS --------------------------------
+
+---@param resource string
+local function init_script(resource)
+  if resource ~= RES_NAME then return end
+  for location, data in pairs(JEWELLERY_CASES) do
+    Cases[location] = {}
+    for i = 1, #data do
+      local case = data[i]
+      Cases[location][i] = {
+        coords = case.coords,
+        busy = false,
+        open = false
+      }
+    end
+  end
+end
+
+---@param player string|integer
+---@param coords vector3
+local function is_case_busy(player, coords)
+  if not bridge.core.getplayer(player) then return end
+  for _, data in pairs(Cases) do
+    for i = 1, #data do
+      local case = data[i]
+      if #(case.coords - coords) < 1.0 then
+        return case.busy
+      end
+    end
+  end
+  return true
+end
 
 local function randomNum(min, max)
   math.randomseed(os.time())
@@ -36,6 +74,8 @@ local function exploitBan(id, reason)
 end
 
 -------------------------------- EVENTS --------------------------------
+
+AddEventHandler('onResourceStart', init_script)
 
 RegisterServerEvent('don-jewellery:server:RemoveDoorItem', function()
   local src = source
@@ -215,3 +255,10 @@ bridge.callback.register('don-jewellery:server:GetJewelleryState', function()
   local data = {Locations = Config.Vitrines, Hacks = Config.Stores}
 	return data
 end)
+
+bridge.callback.register('jewellery:server:GetCaseStates', function(player)
+  if not bridge.core.getplayer(player) then return end
+  return Cases
+end)
+
+bridge.callback.register('jewellery:server:IsCaseBusy', is_case_busy)
