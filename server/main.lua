@@ -35,9 +35,9 @@ local function init_script(resource)
 end
 
 ---@param player string|integer
----@param coords vector3
-local function is_case_busy(player, coords)
+local function is_case_busy(player)
   if not bridge.core.getplayer(player) then return end
+  local coords = GetEntityCoords(GetPlayerPed(player))
   for _, data in pairs(Cases) do
     for i = 1, #data do
       local case = data[i]
