@@ -681,7 +681,7 @@ bridge.target.addmodel({'des_jewel_cab_start', 'des_jewel_cab2_start', 'des_jewe
     icon = 'fa fa-hand',
     label = Lang:t('general.target_label'),
     canInteract = function(ent)
-      return not bridge.callback.await('jewellery:server:IsCaseBusy', false, GetEntityCoords(ent))
+      return not bridge.callback.await('jewellery:server:IsCaseBusy', false)
     end,
     onSelect = function()
       print('Yay')
