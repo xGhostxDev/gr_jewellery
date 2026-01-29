@@ -690,7 +690,48 @@ bridge.target.addmodel({'des_jewel_cab_start', 'des_jewel_cab2_start', 'des_jewe
   }
 })
 
-if not Config.OneStore then
+for k, v in pairs(LOCATIONS) do
+  local thermite = v.thermite
+  bridge.target.addboxzone({
+    center = thermite.coords,
+    size = vector3(0.4, 0.8, thermite.max_z - thermite.min_z),
+    heading = thermite.heading,
+    debug = false
+  }, {
+    {
+      name = 'jewelthermite'..k,
+      icon = 'fas fa-bug',
+      label = 'Blow Fuse Box',
+      item = 'thermite',
+      distance = 2.5,
+      onSelect = function()
+        TriggerEvent('don-jewellery:client:Thermite', k)
+      end
+    }
+  })
+  local hack = v.hack
+  if hack then
+    bridge.target.addboxzone({
+      center = hack.coords,
+      size = vector3(0.4, 0.6, hack.max_z - hack.min_z),
+      heading = hack.heading,
+      debug = false
+    }, {
+      {
+        name = 'jewelpc1',
+        icon = 'fas fa-bug',
+        label = 'Hack Security System',
+        item = Config.HackItem,
+        distance = 2.5,
+        onSelect = function()
+          TriggerEvent('don-jewellery:client:HackSecurity')
+        end
+      }
+    })
+  end
+end
+
+-- if not Config.OneStore then
   -- for k, v in pairs(Config.Vitrines) do
   --   bridge.target.addboxzone({
   --     center = v.coords,
@@ -717,26 +758,26 @@ if not Config.OneStore then
   --     }
   --   })
   -- end
-  for k, v in pairs(Config.Stores) do
-    bridge.target.addboxzone({
-      center = v['Thermite'].coords,
-      size = vector3(0.4, 0.8, v['Thermite'].maxZ - v['Thermite'].minZ),
-      heading = v['Thermite'].h,
-      debug = false
-    }, {
-      {
-        name = 'jewelthermite' .. k,
-        icon = 'fas fa-bug',
-        label = 'Blow Fuse Box',
-        item = 'thermite',
-        distance = 2.5,
-        onSelect = function()
-          TriggerEvent('don-jewellery:client:Thermite', k)
-        end
-      }
-    })
-  end
-else
+--   for k, v in pairs(Config.Stores) do
+--     bridge.target.addboxzone({
+--       center = v['Thermite'].coords,
+--       size = vector3(0.4, 0.8, v['Thermite'].maxZ - v['Thermite'].minZ),
+--       heading = v['Thermite'].h,
+--       debug = false
+--     }, {
+--       {
+--         name = 'jewelthermite' .. k,
+--         icon = 'fas fa-bug',
+--         label = 'Blow Fuse Box',
+--         item = 'thermite',
+--         distance = 2.5,
+--         onSelect = function()
+--           TriggerEvent('don-jewellery:client:Thermite', k)
+--         end
+--       }
+--     })
+--   end
+-- else
   -- for i = 1, 20, 1 do
   --   bridge.target.addboxzone({
   --     center = Config.Vitrines[i].coords,
@@ -768,42 +809,42 @@ else
   --     }
   --   })
   -- end
-  bridge.target.addboxzone({
-    center = Config.Stores[1]['Thermite'].coords,
-    size = vector3(0.4, 0.8, Config.Stores[1]['Thermite'].maxZ - Config.Stores[1]['Thermite'].minZ),
-    heading = Config.Stores[1]['Thermite'].h,
-    debug = false
-  }, {
-    {
-      name = 'jewelthermite1',
-      icon = 'fas fa-bug',
-      label = 'Blow Fuse Box',
-      item = Config.DoorItem,
-      distance = 2.5,
-      onSelect = function()
-        TriggerEvent('don-jewellery:client:Thermite', 1)
-      end
-    }
-  })
-end
+--   bridge.target.addboxzone({
+--     center = Config.Stores[1]['Thermite'].coords,
+--     size = vector3(0.4, 0.8, Config.Stores[1]['Thermite'].maxZ - Config.Stores[1]['Thermite'].minZ),
+--     heading = Config.Stores[1]['Thermite'].h,
+--     debug = false
+--   }, {
+--     {
+--       name = 'jewelthermite1',
+--       icon = 'fas fa-bug',
+--       label = 'Blow Fuse Box',
+--       item = Config.DoorItem,
+--       distance = 2.5,
+--       onSelect = function()
+--         TriggerEvent('don-jewellery:client:Thermite', 1)
+--       end
+--     }
+--   })
+-- end
 
-bridge.target.addboxzone({
-  center = Config.Stores[1]['Hack'].coords,
-  size = vector3(0.4, 0.6, Config.Stores[1]['Hack'].maxZ - Config.Stores[1]['Hack'].minZ),
-  heading = Config.Stores[1]['Hack'].h,
-  debug = false
-}, {
-  {
-    name = 'jewelpc1',
-    icon = 'fas fa-bug',
-    label = 'Hack Security System',
-    item = Config.HackItem,
-    distance = 2.5,
-    onSelect = function()
-      TriggerEvent('don-jewellery:client:HackSecurity')
-    end
-  }
-})
+-- bridge.target.addboxzone({
+--   center = Config.Stores[1]['Hack'].coords,
+--   size = vector3(0.4, 0.6, Config.Stores[1]['Hack'].maxZ - Config.Stores[1]['Hack'].minZ),
+--   heading = Config.Stores[1]['Hack'].h,
+--   debug = false
+-- }, {
+--   {
+--     name = 'jewelpc1',
+--     icon = 'fas fa-bug',
+--     label = 'Hack Security System',
+--     item = Config.HackItem,
+--     distance = 2.5,
+--     onSelect = function()
+--       TriggerEvent('don-jewellery:client:HackSecurity')
+--     end
+--   }
+-- })
 
 -------------------------------- THREADS --------------------------------
 
