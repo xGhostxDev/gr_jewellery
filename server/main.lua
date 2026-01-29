@@ -79,6 +79,15 @@ end
 
 AddEventHandler('onResourceStart', init_script)
 
+RegisterServerEvent('jewellery:server:SetCaseState', function(location, case, _type, state)
+  local src = source
+  if not bridge.core.getplayer(src) then return end
+  if not JEWELLERY_CASES[location][case] then return end
+  if #(JEWELLERY_CASES[location][case].coords - GetEntityCoords(GetPlayerPed(src))) > 1.0 then return end
+  Cases[location][case][_type] = state
+  if _type ~= 'busy' then TriggerClientEvent('jewellery:client:SetCaseState', -1, location, case, state) end
+end)
+
 RegisterServerEvent('don-jewellery:server:RemoveDoorItem', function()
   local src = source
   local Player = bridge.core.getplayer(src)
