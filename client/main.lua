@@ -1,3 +1,7 @@
+local RES_NAME <const> = bridge._RESOURCE
+local JEWELLERY_CASES <const> = glib.require(RES_NAME..'.shared.jewellery_cases') --[[@module 'gr_jewellery.shared.jewellery_cases']]
+local isLoggedIn = false
+
 local firstAlarm, secondAlarm, smashing, locked  = false, false, false, false
 
 -------------------------------- FUNCTIONS --------------------------------
@@ -246,18 +250,65 @@ local function addSkillToPlayer(hack)
   exports[Config.Skills.system]:UpdateSkill(Config.Skills[hack].skill, xp)
 end
 
+---@param location string
+---@param index integer
+---@param state boolean
+local function set_case_state(location, index, state)
+  if not JEWELLERY_CASES[location][index] then return end
+  local case = JEWELLERY_CASES[location][index]
+  local coords = case.coords
+  local start_prop = case.start_prop
+  local end_prop = case.end_prop
+  if not state then
+    RemoveModelSwap(coords.x, coords.y, coords.z, 0.1, start_prop, end_prop, true)
+  else
+    CreateModelSwap(coords.x, coords.y, coords.z, 0.1, start_prop, end_prop, true)
+    RecordBrokenGlass(coords.x, coords.y, coords.z, 0.75)
+  end
+end
+
+---@param cases {[string]: {coords: vector3, busy: boolean, open: boolean}[]}
+local function set_cases(cases)
+  ClearAllBrokenGlass()
+  for location, data in pairs(cases) do
+    for i = 1, #data do
+      local case = data[i]
+      local open = case.open
+      if not open then
+        set_case_state(location, i, false)
+      else
+        set_case_state(location, i, true)
+      end
+    end
+  end
+end
+
+---@param resource string?
+local function init_script(resource)
+  if resource and type(resource) == 'string' and resource ~= RES_NAME then return end
+  isLoggedIn = LocalPlayer.state.isLoggedIn or IsPlayerPlaying(PlayerId())
+  bridge.callback.trigger('jewellery:server:GetCaseStates', 1000, set_cases)
+end
+
 -------------------------------- HANDLERS --------------------------------
 
-AddEventHandler(bridge.core.getevent('load'), function()
-	bridge.callback.trigger('don-jewellery:server:GetJewelleryState', false, function(result)
-		Config.Vitrines = result.Locations
-    Config.Stores = result.Hacks
-	end)
-  local blip = GetFirstBlipInfoId(617)
-  if not DoesBlipExist(blip) then
-    createBlips()
-  end
-end)
+if bridge.core.getname() == 'qbx_core' then
+  AddEventHandler(bridge.core.getevent('load'), init_script)
+else
+  RegisterNetEvent(bridge.core.getevent('load'), init_script)
+end
+AddEventHandler('onResourceStart', init_script)
+
+-- AddEventHandler(bridge.core.getevent('load'), function()
+-- 	bridge.callback.trigger('don-jewellery:server:GetJewelleryState', false, function(result)
+-- 		Config.Vitrines = result.Locations
+--     Config.Stores = result.Hacks
+-- 	end)
+--   local blip = GetFirstBlipInfoId(617)
+--   if not DoesBlipExist(blip) then
+--     createBlips()
+--   end
+-- end)
 
 AddEventHandler(bridge.core.getevent('unload'), function()
   for i = 1, #Config.Vitrines do
@@ -268,16 +319,17 @@ AddEventHandler(bridge.core.getevent('unload'), function()
   removeBlips()
 end)
 
-AddEventHandler('onResourceStart', function(resource)
-  if resource ~= GetCurrentResourceName() then return end
-  for i = 1, #Config.Vitrines do
-    if Config.Vitrines[i].isBusy then
-      TriggerServerEvent('don-jewellery:server:SetVitrineState', false, i)
-    end
-  end
-  TriggerServerEvent('don-jewellery:server:StoreHit', 'all', false)
-  createBlips()
-end)
+-- AddEventHandler('onResourceStart', function(resource)
+--   if resource ~= GetCurrentResourceName() then return end
+--   for i = 1, #Config.Vitrines do
+--     print('tellin server to set state', i)
+--     if Config.Vitrines[i].isBusy then
+--       TriggerServerEvent('don-jewellery:server:SetVitrineState', false, i)
+--     end
+--   end
+--   TriggerServerEvent('don-jewellery:server:StoreHit', 'all', false)
+--   createBlips()
+-- end)
 
 AddEventHandler('onResourceStop', function(resource)
   if resource ~= GetCurrentResourceName() then return end
@@ -623,33 +675,48 @@ end)
 
 -------------------------------- TARGET --------------------------------
 
+bridge.target.addmodel({'des_jewel_cab_start', 'des_jewel_cab2_start', 'des_jewel_cab3_start', 'des_jewel_cab4_start'}, {
+  {
+    name = 'jewel_heist',
+    icon = 'fa fa-hand',
+    label = Lang:t('general.target_label'),
+    canInteract = function(ent)
+      return not bridge.callback.await('jewellery:server:IsCaseBusy', false, GetEntityCoords(ent))
+    end,
+    onSelect = function()
+      print('Yay')
+    end,
+    distance = 1.0
+  }
+})
+
 if not Config.OneStore then
-  for k, v in pairs(Config.Vitrines) do
-    bridge.target.addboxzone({
-      center = v.coords,
-      size = vector3(1, 1, 2),
-      heading = 40,
-      debug = false
-    }, {
-      {
-        name = 'jewelstore' .. k,
-        icon = 'fa fa-hand',
-        label = Lang:t('general.target_label'),
-        distance = 1.5,
-        onSelect = function()
-          if validWeapon() then
-            TriggerEvent('don-jewellery:client:SmashCase', k)
-          else
-            bridge.notify.text(Lang:t('error.wrong_weapon'), 'error')
-          end
-        end,
-        canInteract = function()
-          if v.isOpened or v.isBusy then return false end
-          return true
-        end,
-      }
-    })
-  end
+  -- for k, v in pairs(Config.Vitrines) do
+  --   bridge.target.addboxzone({
+  --     center = v.coords,
+  --     size = vector3(1, 1, 2),
+  --     heading = 40,
+  --     debug = false
+  --   }, {
+  --     {
+  --       name = 'jewelstore' .. k,
+  --       icon = 'fa fa-hand',
+  --       label = Lang:t('general.target_label'),
+  --       distance = 1.5,
+  --       onSelect = function()
+  --         if validWeapon() then
+  --           TriggerEvent('don-jewellery:client:SmashCase', k)
+  --         else
+  --           bridge.notify.text(Lang:t('error.wrong_weapon'), 'error')
+  --         end
+  --       end,
+  --       canInteract = function()
+  --         if v.isOpened or v.isBusy then return false end
+  --         return true
+  --       end,
+  --     }
+  --   })
+  -- end
   for k, v in pairs(Config.Stores) do
     bridge.target.addboxzone({
       center = v['Thermite'].coords,
@@ -670,37 +737,37 @@ if not Config.OneStore then
     })
   end
 else
-  for i = 1, 20, 1 do
-    bridge.target.addboxzone({
-      center = Config.Vitrines[i].coords,
-      size = vector3(1, 1, 2),
-      heading = 40,
-      debug = false
-    }, {
-      {
-        name = 'jewelstore' .. i,
-        icon = 'fa fa-hand',
-        label = Lang:t('general.target_label'),
-        distance = 1.5,
-        onSelect = function()
-          local ped = PlayerPedId()
-          if GetSelectedPedWeapon(ped) == `WEAPON_UNARMED` then
-            bridge.notify.text(Lang:t('error.unarmed'), 'error')
-          else
-            if validWeapon() then
-              TriggerEvent('don-jewellery:client:SmashCase', i)
-            else
-              bridge.notify.text(Lang:t('error.wrong_weapon'), 'error')
-            end
-          end
-        end,
-        canInteract = function()
-          if Config.Vitrines[i].isOpened or Config.Vitrines[i].isBusy then return false end
-          return true
-        end,
-      }
-    })
-  end
+  -- for i = 1, 20, 1 do
+  --   bridge.target.addboxzone({
+  --     center = Config.Vitrines[i].coords,
+  --     size = vector3(1, 1, 2),
+  --     heading = 40,
+  --     debug = false
+  --   }, {
+  --     {
+  --       name = 'jewelstore' .. i,
+  --       icon = 'fa fa-hand',
+  --       label = Lang:t('general.target_label'),
+  --       distance = 1.5,
+  --       onSelect = function()
+  --         local ped = PlayerPedId()
+  --         if GetSelectedPedWeapon(ped) == `WEAPON_UNARMED` then
+  --           bridge.notify.text(Lang:t('error.unarmed'), 'error')
+  --         else
+  --           if validWeapon() then
+  --             TriggerEvent('don-jewellery:client:SmashCase', i)
+  --           else
+  --             bridge.notify.text(Lang:t('error.wrong_weapon'), 'error')
+  --           end
+  --         end
+  --       end,
+  --       canInteract = function()
+  --         if Config.Vitrines[i].isOpened or Config.Vitrines[i].isBusy then return false end
+  --         return true
+  --       end,
+  --     }
+  --   })
+  -- end
   bridge.target.addboxzone({
     center = Config.Stores[1]['Thermite'].coords,
     size = vector3(0.4, 0.8, Config.Stores[1]['Thermite'].maxZ - Config.Stores[1]['Thermite'].minZ),
