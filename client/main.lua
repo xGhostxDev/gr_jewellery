@@ -760,11 +760,15 @@ bridge.target.addmodel(start_case_models, {
     name = 'jewel_heist',
     icon = 'fa fa-hand',
     label = Lang:t('general.target_label'),
-    canInteract = function(ent)
-      return not bridge.callback.await('jewellery:server:IsCaseBusy', false)
+    item = {'weapon_assaultrifle'},
+    canInteract = function()
+      return isLoggedIn and not bridge.callback.await('jewellery:server:IsCaseBusy', false)
     end,
     onSelect = function()
-      smash_case(get_closest_case(GetEntityCoords(PlayerPedId())))
+      local location, case, entity = get_closest_case(GetOffsetFromEntityInWorldCoords(PlayerPedId(), 0.0, 0.25, 0.0))
+      if not bridge.callback.await('jewellery:server:GetPolicePresence', false, location) then return end
+
+      smash_case(location, case, entity)
     end,
     distance = 1.0
   }
@@ -774,7 +778,7 @@ for k, v in pairs(LOCATIONS) do
   local thermite = v.thermite
   bridge.target.addboxzone({
     center = thermite.coords,
-    size = vector3(0.4, 0.8, thermite.max_z - thermite.min_z),
+    size = thermite.size,
     heading = thermite.heading,
     debug = false
   }, {
@@ -783,7 +787,10 @@ for k, v in pairs(LOCATIONS) do
       icon = 'fas fa-bug',
       label = 'Blow Fuse Box',
       item = 'thermite',
-      distance = 2.5,
+      canInteract = function()
+        local _, hit = bridge.callback.await('jewellery:server:IsStoreVulnerable', false, k)
+        return isLoggedIn and not hit
+      end,
       onSelect = function()
         TriggerEvent('don-jewellery:client:Thermite', k)
       end
@@ -793,7 +800,7 @@ for k, v in pairs(LOCATIONS) do
   if hack then
     bridge.target.addboxzone({
       center = hack.coords,
-      size = vector3(0.4, 0.6, hack.max_z - hack.min_z),
+      size = hack.size,
       heading = hack.heading,
       debug = false
     }, {
