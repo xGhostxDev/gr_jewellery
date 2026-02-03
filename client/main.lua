@@ -673,6 +673,7 @@ end)
 RegisterNetEvent('don-jewellery:client:SetVitrineState', function(stateType, state, k)
   Config.Vitrines[k][stateType] = state
   if stateType == 'isBusy' and state == true then
+    print('setting state', k)
     CreateModelSwap(Config.Vitrines[k].coords, 0.1, Config.Vitrines[k].propStart, Config.Vitrines[k].propEnd, false)
   end
 
@@ -842,7 +843,7 @@ local function use_thermite(location, coords, heading)
         end
       end
       if hit then return end
-      -- Set Store as Hit
+      TriggerServerEvent('jewellery:server:SetStoreState', location, 'hit', true)
     end, location)
     Wait(3000)
     scene:clear(false, true)
@@ -868,7 +869,7 @@ local function hack_security(location)
   else
     bridge.callback.trigger('jewellery:server:IsStoreVulnerable', false, function(hacked, hit)
       if hacked then return end
-      -- Set Store as Hacked
+      TriggerServerEvent('jewellery:server:SetStoreState', location, 'hacked', true)
     end, location)
   end
   StopAnimTask(ped, dict, 'base', 8.0)
@@ -952,25 +953,25 @@ end
 
 -------------------------------- THREADS --------------------------------
 
-CreateThread(function()
-  local loopDone = false
-  while Config.AutoLock do
-    Wait(1000)
-    if LocalPlayer.state.isLoggedIn then
-      if not checkTime(Config.VangelicoHours.range.open, Config.VangelicoHours.range.close) then
-        if (not isStoreHit(nil, false) and not isStoreHacked()) and not locked then
-          Wait(1000)
-          TriggerServerEvent('don-jewellery:server:ToggleDoorlocks', nil, true, true)
-          locked = true
-          loopDone = false
-        end
-      else
-        if not loopDone then
-          Wait(1000)
-          TriggerServerEvent('don-jewellery:server:ToggleDoorlocks', nil, false, true)
-          loopDone = true
-        end
-      end
-    end
-  end
-end)
+-- CreateThread(function()
+--   local loopDone = false
+--   while Config.AutoLock do
+--     Wait(1000)
+--     if LocalPlayer.state.isLoggedIn then
+--       if not checkTime(Config.VangelicoHours.range.open, Config.VangelicoHours.range.close) then
+--         if (not isStoreHit(nil, false) and not isStoreHacked()) and not locked then
+--           Wait(1000)
+--           TriggerServerEvent('don-jewellery:server:ToggleDoorlocks', nil, true, true)
+--           locked = true
+--           loopDone = false
+--         end
+--       else
+--         if not loopDone then
+--           Wait(1000)
+--           TriggerServerEvent('don-jewellery:server:ToggleDoorlocks', nil, false, true)
+--           loopDone = true
+--         end
+--       end
+--     end
+--   end
+-- end)
