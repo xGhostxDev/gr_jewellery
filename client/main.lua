@@ -309,16 +309,212 @@ local function deinit_script(resource)
   isLoggedIn = false
 end
 
--------------------------------- HANDLERS --------------------------------
+---@param coords vector3
+---@return string?, integer?, integer?
+local function get_closest_case(coords)
+  local closest_ent
+  local closest_coord
+  local dist = math.huge
+  for i = 1, #start_case_models do
+    local entity = GetClosestObjectOfType(coords.x, coords.y, coords.z, 1.0, start_case_models[i], false, true, false)
+    if entity ~= 0 then
+      local fnd_coords = GetEntityCoords(entity)
+      local fnd_dist = #(coords - fnd_coords)
+
+      if fnd_dist < dist then
+        closest_coord = fnd_coords
+        closest_ent = entity
+        dist = fnd_dist
+      end
+    end
+  end
+  for location, cases in pairs(JEWELLERY_CASES) do
+    for i = 1, #cases do
+      local case = cases[i]
+      if #(case.coords - closest_coord) <= 1.0 then return location, i, closest_ent end
+    end
+  end
+end
+
+local function smash_case(location, case, entity)
+  if not location or not case or not entity or not JEWELLERY_CASES[location][case] then -- exploit detected?
+    return
+  end
+  local dict = 'missheist_jewel'
+  if not glib.stream.animdict(dict) then return end
+  TriggerServerEvent('jewellery:server:SetCaseState', location, case, 'busy', true)
+  local anim = 'smash_case'
+  local ped = PlayerPedId()
+  local case_data = JEWELLERY_CASES[location][case]
+  local coords = case_data.coords
+  local offset = GetAnimInitialOffsetPosition(dict, anim, coords.x, coords.y, coords.z, 0.0, 0.0, 0.0, 0.0, 2)
+  local heading = case_data.heading
+  offset = GetOffsetFromCoordAndHeadingInWorldCoords(offset.x, offset.y, offset.z, heading, 0.0, -0.25, 0.0)
+  local duration = GetAnimDuration(dict, anim)
+  local sequence = OpenSequenceTask()
+  ---@diagnostic disable-next-line: param-type-mismatch
+  TaskFollowNavMeshToCoord(0, offset.x, offset.y, offset.z, 1.0, 2500, 0.1, 512, heading)
+  TaskPlayAnimAdvanced(0, dict, anim, offset.x, offset.y, offset.z, 0.0, 0.0, heading, 1.0, 1.0, duration, 1090527232 --[[+ 4194304 Adds Collision on Impact]], 0.0)
+  CloseSequenceTask(sequence)
+  TaskPerformSequence(ped, sequence)
+  ClearSequenceTask(sequence)
+  CreateThread(function()
+    local ptfx = 'scr_jewelheist'
+    while GetEntityAnimCurrentTime(ped, dict, anim) <= 0.04 do
+      Wait(0)
+    end
+    TriggerServerEvent('jewellery:server:SetCaseState', location, case, 'open', true)
+    ---@diagnostic disable-next-line: param-type-mismatch
+    glib.audio.playsoundatcoords(true, nil, 'Glass_Smash', offset, 0, 0, false)
+    if not glib.stream.ptfx(ptfx) then return end
+    UseParticleFxAsset(ptfx)
+    StartParticleFxNonLoopedOnEntity('scr_jewel_cab_smash', GetCurrentPedWeaponEntityIndex(ped), 0.0, 0.0, -0.1, 0.0, 0.0, 0.0, 1.0, false, false, false)
+    bridge.callback.trigger('jewellery:server:IsStoreVulnerable', 100, function(hacked, hit)
+      if not hacked and not GlobalState['jewellery:alarm'] then
+        -- Add time if statement to do alarms and dispatch
+        if location == 'main' then
+          TriggerServerEvent('jewellery:server:VangelicoAlarm', location, true)
+        end
+        local chance = math.random(100)
+        if not hit and chance < 70 then
+          -- Alert Police Dispatch
+        end
+      end
+    end, location)
+    RemoveAnimDict(dict)
+    RemoveNamedPtfxAsset(ptfx)
+  end)
+end
+
+local function use_thermite(location, coords, heading)
+  local chance = math.random(100)
+  if chance <= 10 then
+    -- Alert Police Dispatch: Suspcious Activity
+  end
+
+  local dict = 'anim@heists@ornate_bank@thermal_charge'
+  if not glib.stream.animdict(dict) then return end
+  local ped_anim = 'thermal_charge'
+  local bag_anim = 'bag_thermal_charge'
+  local ped = PlayerPedId()
+  local thermite = CreateObject(`hei_prop_heist_thermite`, coords.x, coords.y, coords.z + 0.2,  true,  true, false)
+  SetEntityCollision(thermite, false, true)
+  AttachEntityToEntity(thermite, ped, GetPedBoneIndex(ped, 28422), 0, 0, 0, 0, 0, 200.0, true, true, false, true, 1, true)
+
+  local scene = glib.netscene({
+    scene = {coords = coords, rotation = vector3(0.0, 0.0, heading), hold = true},
+    peds = {
+      {
+        dict = dict,
+        anim = ped_anim,
+        entity = ped,
+        -- blend_in = 1.5,
+        -- blend_out = -4.0,
+        scene_flags = 19480,
+        ragdoll_flags = 16
+      }
+    },
+    objs = {
+      {
+        dict = dict,
+        anim = bag_anim,
+        model = `hei_p_m_bag_var22_arm_s`,
+        -- blend_in = 4.0,
+        -- blend_out = -8.0,
+        scene_flags = 1
+      }
+    }
+  })
+  local ptfx = 'scr_ornate_heist'
+  local ptfx_handle = 0
+  local abort = false
+  scene:start(function(phase)
+    if phase >= 0.4 and IsEntityAttached(thermite) then
+      DetachEntity(thermite, true, true)
+      FreezeEntityPosition(thermite, true)
+      if not exports['glitch-minigames']:StartMemoryGame(
+        Config.ThermiteSettings.gridsize,
+        Config.ThermiteSettings.squareCount,
+        Config.ThermiteSettings.rounds,
+        Config.ThermiteSettings.showtime,
+        Config.ThermiteSettings.incorrectBlocks
+      ) then scene:clear(false, true); abort = true return end
+      Wait(500)
+      if not glib.stream.ptfx(ptfx) then return end
+      UseParticleFxAsset(ptfx)
+      ptfx_handle = StartParticleFxLoopedAtCoord('scr_heist_ornate_thermal_burn', coords.x, coords.y + 1.0, coords.z, 0.0, 0.0, 0.0, 1.0, false, false, false, false)
+    end
+  end)
+  if not abort then
+    bridge.callback.trigger('jewellery:server:IsStoreVulnerable', false, function(hacked, hit)
+      if not hacked then
+        -- Add time if statement to do alarms and dispatch
+        chance = math.random(100)
+        if chance < 85 then
+          -- Alert Police Dispatch: Explosion
+        end
+      end
+      if hit then return end
+      TriggerServerEvent('jewellery:server:SetStoreState', location, 'hit', true)
+    end, location)
+    Wait(3000)
+    scene:clear(false, true)
+    StopParticleFxLooped(ptfx_handle, false)
+    RemoveNamedPtfxAsset(ptfx)
+  end
+  DeleteObject(thermite)
+  RemoveAnimDict(dict)
+end
+
+local function hack_security(location)
+  local dict = 'amb@world_human_seat_wall_tablet@female@base'
+  if not glib.stream.animdict(dict) then return end
+  local ped = PlayerPedId()
+  local tablet = CreateObject(`prop_cs_tablet`, 0, 0, 0, true, true, false)
+  local leo = bridge.core.doesplayerhavegroup('leo')
+
+  AttachEntityToEntity(tablet, ped, GetPedBoneIndex(ped, 57005), 0.17, 0.10, -0.13, 20.0, 180.0, 180.0, true, true, false, true, 1, true)
+  TaskPlayAnim(ped, dict, 'base', 8.0, -8.0, -1, 50, 1.0, false, false, false)
+  Wait(1000)
+
+  if not leo and not exports['glitch-minigames']:StartPipePressureGame(Config.VarHackSettings.gridsize, Config.VarHackSettings.time) then
+    bridge.notify.text(Lang:t('error.fail_hack'), 'error')
+  else
+    bridge.callback.trigger('jewellery:server:IsStoreVulnerable', false, function(hacked, hit)
+      if not leo then TriggerServerEvent('jewellery:server:SetStoreState', location, 'hacked', true) end
+      if GlobalState['jewellery:alarm'] then TriggerServerEvent('jewellery:server:VangelicoAlarm', location, false) end
+    end, location)
+  end
+  StopAnimTask(ped, dict, 'base', 8.0)
+  DeleteObject(tablet)
+  RemoveAnimDict(dict)
+end
+
+--------------------- HANDLERS ---------------------
+
+AddEventHandler('onResourceStart', init_script)
+AddEventHandler('onResourceStop', deinit_script)
+AddStateBagChangeHandler('jewellery:alarm', 'global', function(_, _, state)
+  if state then
+    PrepareAlarm('JEWEL_STORE_HEIST_ALARMS')
+    repeat
+      Wait(0)
+    until PrepareAlarm('JEWEL_STORE_HEIST_ALARMS')
+    StartAlarm('JEWEL_STORE_HEIST_ALARMS', false)
+  else
+    StopAlarm('JEWEL_STORE_HEIST_ALARMS', true)
+  end
+end)
+
+--------------------- EVENTS ---------------------
 
 if bridge.core.getname() == 'qbx_core' then
   AddEventHandler(bridge.core.getevent('load'), init_script)
 else
   RegisterNetEvent(bridge.core.getevent('load'), init_script)
 end
-AddEventHandler('onResourceStart', init_script)
-AddEventHandler('onResourceStop', deinit_script)
 
+RegisterNetEvent(bridge.core.getevent('unload'), deinit_script)
 RegisterNetEvent('jewellery:client:SetCaseState', set_case_state)
 
 -- AddEventHandler(bridge.core.getevent('load'), function()
@@ -331,15 +527,6 @@ RegisterNetEvent('jewellery:client:SetCaseState', set_case_state)
 --     createBlips()
 --   end
 -- end)
-
-AddEventHandler(bridge.core.getevent('unload'), function()
-  for i = 1, #Config.Vitrines do
-    if Config.Vitrines[i].isBusy then
-      TriggerServerEvent('don-jewellery:server:SetVitrineState', false, i)
-    end
-  end
-  removeBlips()
-end)
 
 -- AddEventHandler('onResourceStart', function(resource)
 --   if resource ~= GetCurrentResourceName() then return end
@@ -695,187 +882,6 @@ RegisterNetEvent('don-jewellery:client:StoreHit', function(storeIndex, isHit)
     end
   end
 end)
-
----@param coords vector3
----@return string?, integer?, integer?
-local function get_closest_case(coords)
-  local closest_ent
-  local closest_coord
-  local dist = math.huge
-  for i = 1, #start_case_models do
-    local entity = GetClosestObjectOfType(coords.x, coords.y, coords.z, 1.0, start_case_models[i], false, true, false)
-    if entity ~= 0 then
-      local fnd_coords = GetEntityCoords(entity)
-      local fnd_dist = #(coords - fnd_coords)
-
-      if fnd_dist < dist then
-        closest_coord = fnd_coords
-        closest_ent = entity
-        dist = fnd_dist
-      end
-    end
-  end
-  for location, cases in pairs(JEWELLERY_CASES) do
-    for i = 1, #cases do
-      local case = cases[i]
-      if #(case.coords - closest_coord) <= 1.0 then return location, i, closest_ent end
-    end
-  end
-end
-
-local function smash_case(location, case, entity)
-  if not location or not case or not entity or not JEWELLERY_CASES[location][case] then -- exploit detected?
-    return
-  end
-  local dict = 'missheist_jewel'
-  if not glib.stream.animdict(dict) then return end
-  TriggerServerEvent('jewellery:server:SetCaseState', location, case, 'busy', true)
-  local anim = 'smash_case'
-  local ped = PlayerPedId()
-  local case_data = JEWELLERY_CASES[location][case]
-  local coords = case_data.coords
-  local offset = GetAnimInitialOffsetPosition(dict, anim, coords.x, coords.y, coords.z, 0.0, 0.0, 0.0, 0.0, 2)
-  local heading = case_data.heading
-  offset = GetOffsetFromCoordAndHeadingInWorldCoords(offset.x, offset.y, offset.z, heading, 0.0, -0.25, 0.0)
-  local duration = GetAnimDuration(dict, anim)
-  local sequence = OpenSequenceTask()
-  ---@diagnostic disable-next-line: param-type-mismatch
-  TaskFollowNavMeshToCoord(0, offset.x, offset.y, offset.z, 1.0, 2500, 0.1, 512, heading)
-  TaskPlayAnimAdvanced(0, dict, anim, offset.x, offset.y, offset.z, 0.0, 0.0, heading, 1.0, 1.0, duration, 1090527232 --[[+ 4194304 Adds Collision on Impact]], 0.0)
-  CloseSequenceTask(sequence)
-  TaskPerformSequence(ped, sequence)
-  ClearSequenceTask(sequence)
-  CreateThread(function()
-    local ptfx = 'scr_jewelheist'
-    while GetEntityAnimCurrentTime(ped, dict, anim) <= 0.04 do
-      Wait(0)
-    end
-    TriggerServerEvent('jewellery:server:SetCaseState', location, case, 'open', true)
-    ---@diagnostic disable-next-line: param-type-mismatch
-    glib.audio.playsoundatcoords(true, nil, 'Glass_Smash', offset, 0, 0, false)
-    if not glib.stream.ptfx(ptfx) then return end
-    UseParticleFxAsset(ptfx)
-    StartParticleFxNonLoopedOnEntity('scr_jewel_cab_smash', GetCurrentPedWeaponEntityIndex(ped), 0.0, 0.0, -0.1, 0.0, 0.0, 0.0, 1.0, false, false, false)
-    bridge.callback.trigger('jewellery:server:IsStoreVulnerable', false, function(hacked, hit)
-      if not hacked and not GlobalState['jewellery:alarm'] then
-        -- Add time if statement to do alarms and dispatch
-        if location == 'main' then
-          PrepareAlarm('JEWEL_STORE_HEIST_ALARMS')
-          StartAlarm('JEWEL_STORE_HEIST_ALARMS', false)
-          TriggerServerEvent('jewellery:server:VangelicoAlarm', location, true)
-        end
-        local chance = math.random(100)
-        if hit and chance >= 70 then return end
-        -- Alert Police Dispatch
-      end
-    end, location)
-    RemoveAnimDict(dict)
-    RemoveNamedPtfxAsset(ptfx)
-  end)
-end
-
-local function use_thermite(location, coords, heading)
-  local chance = math.random(100)
-  if chance <= 10 then
-    -- Alert Police Dispatch: Suspcious Activity
-  end
-
-  local dict = 'anim@heists@ornate_bank@thermal_charge'
-  if not glib.stream.animdict(dict) then return end
-  local ped_anim = 'thermal_charge'
-  local bag_anim = 'bag_thermal_charge'
-  local ped = PlayerPedId()
-  local thermite = CreateObject(`hei_prop_heist_thermite`, coords.x, coords.y, coords.z + 0.2,  true,  true, false)
-  SetEntityCollision(thermite, false, true)
-  AttachEntityToEntity(thermite, ped, GetPedBoneIndex(ped, 28422), 0, 0, 0, 0, 0, 200.0, true, true, false, true, 1, true)
-
-  local scene = glib.netscene({
-    scene = {coords = coords, rotation = vector3(0.0, 0.0, heading), hold = true},
-    peds = {
-      {
-        dict = dict,
-        anim = ped_anim,
-        entity = ped,
-        -- blend_in = 1.5,
-        -- blend_out = -4.0,
-        scene_flags = 19480,
-        ragdoll_flags = 16
-      }
-    },
-    objs = {
-      {
-        dict = dict,
-        anim = bag_anim,
-        model = `hei_p_m_bag_var22_arm_s`,
-        -- blend_in = 4.0,
-        -- blend_out = -8.0,
-        scene_flags = 1
-      }
-    }
-  })
-  local ptfx = 'scr_ornate_heist'
-  local ptfx_handle = 0
-  local abort = false
-  scene:start(function(phase)
-    if phase >= 0.4 and IsEntityAttached(thermite) then
-      DetachEntity(thermite, true, true)
-      FreezeEntityPosition(thermite, true)
-      if not exports['glitch-minigames']:StartMemoryGame(
-        Config.ThermiteSettings.gridsize,
-        Config.ThermiteSettings.squareCount,
-        Config.ThermiteSettings.rounds,
-        Config.ThermiteSettings.showtime,
-        Config.ThermiteSettings.incorrectBlocks
-      ) then scene:clear(false, true); abort = true return end
-      Wait(500)
-      if not glib.stream.ptfx(ptfx) then return end
-      UseParticleFxAsset(ptfx)
-      ptfx_handle = StartParticleFxLoopedAtCoord('scr_heist_ornate_thermal_burn', coords.x, coords.y + 1.0, coords.z, 0.0, 0.0, 0.0, 1.0, false, false, false, false)
-    end
-  end)
-  if not abort then
-    bridge.callback.trigger('jewellery:server:IsStoreVulnerable', false, function(hacked, hit)
-      if not hacked then
-        -- Add time if statement to do alarms and dispatch
-        chance = math.random(100)
-        if chance < 85 then
-          -- Alert Police Dispatch: Explosion
-        end
-      end
-      if hit then return end
-      TriggerServerEvent('jewellery:server:SetStoreState', location, 'hit', true)
-    end, location)
-    Wait(3000)
-    scene:clear(false, true)
-    StopParticleFxLooped(ptfx_handle, false)
-    RemoveNamedPtfxAsset(ptfx)
-  end
-  DeleteObject(thermite)
-  RemoveAnimDict(dict)
-end
-
-local function hack_security(location)
-  local dict = 'amb@world_human_seat_wall_tablet@female@base'
-  if not glib.stream.animdict(dict) then return end
-  local ped = PlayerPedId()
-  local tablet = CreateObject(`prop_cs_tablet`, 0, 0, 0, true, true, false)
-
-  AttachEntityToEntity(tablet, ped, GetPedBoneIndex(ped, 57005), 0.17, 0.10, -0.13, 20.0, 180.0, 180.0, true, true, false, true, 1, true)
-  TaskPlayAnim(ped, dict, 'base', 8.0, -8.0, -1, 50, 1.0, false, false, false)
-  Wait(1000)
-
-  if not exports['glitch-minigames']:StartPipePressureGame(Config.VarHackSettings.gridsize, Config.VarHackSettings.time) then
-    bridge.notify.text(Lang:t('error.fail_hack'), 'error')
-  else
-    bridge.callback.trigger('jewellery:server:IsStoreVulnerable', false, function(hacked, hit)
-      if hacked then return end
-      TriggerServerEvent('jewellery:server:SetStoreState', location, 'hacked', true)
-    end, location)
-  end
-  StopAnimTask(ped, dict, 'base', 8.0)
-  DeleteObject(tablet)
-  RemoveAnimDict(dict)
-end
 
 -------------------------------- TARGET --------------------------------
 
