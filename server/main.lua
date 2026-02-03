@@ -4,7 +4,7 @@ local JEWELLERY_CASES <const> = glib.require(RES_NAME..'.shared.jewellery_cases'
 local LOCATIONS <const> = glib.require(RES_NAME..'.shared.store_locations') --[[@module 'gr_jewellery.shared.store_locations']]
 local Cases = {}
 local Stores = {}
-local alarm = false
+local PresenceCache = {}
 
 local TimeOuts = {
   [1] = false,
@@ -56,7 +56,26 @@ local function is_case_busy(player)
   return true
 end
 
-local function is_store_hacked(player, location)
+---@param player string|integer
+---@param location string
+---@return boolean?
+local function get_police_presence(player, location)
+  if not bridge.core.getplayer(player) then return end
+  local coords = GetEntityCoords(GetPlayerPed(player))
+  local store = Stores[location]
+  if #(store.coords - coords) > 100.0 then return end
+  local players = GetPlayers()
+  local amount = 0
+  for i = 1, #players do
+    local src = players[i]
+    if bridge.core.doesplayerhavegroup(src, 'leo') then
+      amount += 1
+    end
+  end
+  PresenceCache[player] = amount
+  return amount >= store.police
+end
+
 ---@param player string|integer
 ---@param location string
 ---@return boolean?, boolean?
@@ -287,5 +306,5 @@ bridge.callback.register('jewellery:server:GetCaseStates', function(player)
 end)
 
 bridge.callback.register('jewellery:server:IsCaseBusy', is_case_busy)
-
+bridge.callback.register('jewellery:server:GetPolicePresence', get_police_presence)
 bridge.callback.register('jewellery:server:IsStoreVulnerable', is_store_vulnerable)
