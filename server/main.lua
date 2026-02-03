@@ -38,6 +38,46 @@ local function init_script(resource)
       }
     end
   end
+  GlobalState['jewellery:alarm'] = false
+  SetTimeout(2000, function()
+    glib.github.check(resource, 'grouse-labs', 'gr_jewellery')
+    local version = GetResourceMetadata(resource, 'version', 0)
+    version = version:match('(%d+%.%d+)'):gsub('(%d+)%.(%d+)', 'v^4%1^7.^4%2^7')
+    bridge.print(version..' - Debug Mode '..(DEBUG_MODE and '^2Enabled' or '^1Disabled')..'!^7')
+  end)
+end
+
+local function deinit_script(resource)
+  if resource ~= RES_NAME then return end
+  Cases = {}
+  Stores = {}
+  PresenceCache = {}
+  GlobalState['jewellery:alarm'] = false
+end
+
+---@param location string
+---@param case integer
+---@param _type string
+---@param state boolean
+local function set_case_state(location, case, _type, state)
+  local src = source
+  if not bridge.core.getplayer(src) then return end
+  if not PresenceCache[src] then return end
+  if not JEWELLERY_CASES[location][case] then return end
+  if #(JEWELLERY_CASES[location][case].coords - GetEntityCoords(GetPlayerPed(src))) > 1.0 then return end
+  Cases[location][case][_type] = state
+  if _type ~= 'busy' then TriggerClientEvent('jewellery:client:SetCaseState', -1, location, case, state) end
+end
+
+---@param location string
+---@param state boolean
+local function set_alarm_state(location, state)
+  local src = source
+  if not bridge.core.getplayer(src) then return end
+  if not PresenceCache[src] then return end
+  if not LOCATIONS[location] then return end
+  if #(LOCATIONS[location].coords - GetEntityCoords(GetPlayerPed(src))) > 100.0 then return end
+  GlobalState['jewellery:alarm'] = state
 end
 
 ---@param player string|integer
