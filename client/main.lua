@@ -263,9 +263,10 @@ local function set_case_state(location, index, state)
   local start_prop = case.start_prop
   local end_prop = case.end_prop
   if not state then
-    RemoveModelSwap(coords.x, coords.y, coords.z, 0.1, start_prop, end_prop, true)
+    CreateModelSwap(coords.x, coords.y, coords.z, 0.1, end_prop, start_prop, false)
+    RemoveModelSwap(coords.x, coords.y, coords.z, 0.1, start_prop, end_prop, false)
   else
-    CreateModelSwap(coords.x, coords.y, coords.z, 0.1, start_prop, end_prop, true)
+    CreateModelSwap(coords.x, coords.y, coords.z, 0.1, start_prop, end_prop, false)
     RecordBrokenGlass(coords.x, coords.y, coords.z, 0.75)
   end
 end
@@ -291,6 +292,13 @@ local function init_script(resource)
   if resource and type(resource) == 'string' and resource ~= RES_NAME then return end
   isLoggedIn = LocalPlayer.state.isLoggedIn or IsPlayerPlaying(PlayerId())
   bridge.callback.trigger('jewellery:server:GetCaseStates', 1000, set_cases)
+  if GlobalState['jewellery:alarm'] then
+    PrepareAlarm('JEWEL_STORE_HEIST_ALARMS')
+    repeat
+      Wait(0)
+    until PrepareAlarm('JEWEL_STORE_HEIST_ALARMS')
+    StartAlarm('JEWEL_STORE_HEIST_ALARMS', true)
+  end
 end
 
 ---@param resource string?
