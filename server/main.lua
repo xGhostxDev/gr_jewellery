@@ -3,6 +3,9 @@ local DEBUG_MODE <const> = bridge._DEBUG
 local JEWELLERY_CASES <const> = glib.require(RES_NAME..'.shared.jewellery_cases') --[[@module 'gr_jewellery.shared.jewellery_cases']]
 local LOCATIONS <const> = glib.require(RES_NAME..'.shared.store_locations') --[[@module 'gr_jewellery.shared.store_locations']]
 local CONFIG <const> = glib.require(RES_NAME..'.server.config') --[[@module 'gr_jewellery.server.config']]
+local LOCK_COOLDOWN <const> = CONFIG.cooldowns.locks * 60
+local CASE_COOLDOWN <const> = CONFIG.cooldowns.cases * 60
+local ALARM_COOLDOWN <const> = CONFIG.cooldowns.alarm * 60
 local Cases = {}
 local Stores = {}
 local PresenceCache = {}
@@ -20,6 +23,61 @@ local Flags = {}
 
 -------------------------------- FUNCTIONS --------------------------------
 
+local function set_door_state(location, _type, state)
+  local src = source ~= -1 and source or GetPlayers()[1]
+  if _type == 'hit' then
+  local doors = LOCATIONS[location].doors
+  if not doors then return end
+  for i = 1, #doors do
+    local door = doors[i]
+    bridge.doorlock.setstate(src, door, not state)
+  end
+elseif _type == 'hacked' then
+  for _, v in pairs(LOCATIONS) do
+    if v.doors then
+      for i = 1, #v.doors do
+        local door = v.doors[i]
+        bridge.doorlock.setstate(src, door, not state)
+      end
+    end
+  end
+end
+end
+
+---@async
+local function main_thread()
+  GlobalState:set('jewellery:alarm', false, true)
+  while true do
+    Wait(1000)
+    for location, _types in pairs(Cooldowns) do
+      if _types.locks then
+        _types.locks -= 1
+        if _types.locks == 0 then
+          set_door_state(location, 'hit', false)
+          Stores[location].hit = false
+          Stores[location].hacked = false
+        end
+      end
+      for i = 1, #_types.cases do
+        local case = _types.cases[i]
+        if case then
+          _types.cases[i] -= 1
+          if _types.cases[i] == 0 then
+            Cases[location][i].open = false
+            TriggerClientEvent('jewellery:client:SetCaseState', -1, location, i, false)
+          end
+        end
+      end
+      if _types.alarm then
+        _types.alarm -= 1
+        if _types.alarm == 0 then
+          GlobalState['jewellery:alarm'] = false
+        end
+      end
+    end
+  end
+end
+
 ---@param resource string
 local function init_script(resource)
   if resource ~= RES_NAME then return end
@@ -31,6 +89,7 @@ local function init_script(resource)
       hit = false,
       hacked = false
     }
+    Cooldowns[location] = {locks = false, cases = {}, alarm = false}
     for i = 1, #data do
       local case = data[i]
       Cases[location][i] = {
@@ -38,15 +97,15 @@ local function init_script(resource)
         busy = false,
         open = false
       }
+      Cooldowns[location].cases[i] = false
     end
-    Cooldowns[location] = {}
   end
-  GlobalState['jewellery:alarm'] = false
   SetTimeout(2000, function()
     glib.github.check(resource, 'grouse-labs', 'gr_jewellery')
     local version = GetResourceMetadata(resource, 'version', 0)
     version = version:match('(%d+%.%d+)'):gsub('(%d+)%.(%d+)', 'v^4%1^7.^4%2^7')
     bridge.print(version..' - Debug Mode '..(DEBUG_MODE and '^2Enabled' or '^1Disabled')..'!^7')
+    main_thread()
   end)
 end
 
@@ -55,6 +114,7 @@ local function deinit_script(resource)
   Cases = {}
   Stores = {}
   PresenceCache = {}
+  Cooldowns = {}
   GlobalState['jewellery:alarm'] = false
 end
 
@@ -69,7 +129,12 @@ local function set_case_state(location, case, _type, state)
   if not JEWELLERY_CASES[location][case] then return end
   if #(JEWELLERY_CASES[location][case].coords - GetEntityCoords(GetPlayerPed(src))) > 1.0 then return end
   Cases[location][case][_type] = state
-  if _type ~= 'busy' then TriggerClientEvent('jewellery:client:SetCaseState', -1, location, case, state) end
+  if _type ~= 'busy' then
+    Cooldowns[location].cases[case] = state and CASE_COOLDOWN
+    TriggerClientEvent('jewellery:client:SetCaseState', -1, location, case, state)
+    if not state then return end
+    -- Reward Player
+  end
 end
 
 ---@param location string
@@ -80,7 +145,8 @@ local function set_alarm_state(location, state)
   if not PresenceCache[src] then return end -- Triggered without using target
   if not LOCATIONS[location] then return end
   if #(LOCATIONS[location].coords - GetEntityCoords(GetPlayerPed(src))) > 100.0 then return end
-  GlobalState['jewellery:alarm'] = state
+  GlobalState:set('jewellery:alarm', state, true)
+  Cooldowns[location].alarm = state and ALARM_COOLDOWN
 end
 
 ---@param location string
@@ -93,23 +159,8 @@ local function set_store_state(location, _type, state)
   if not LOCATIONS[location] then return end
   if #(LOCATIONS[location].coords - GetEntityCoords(GetPlayerPed(src))) > 100.0 then return end
   Stores[location][_type] = state
-  if _type == 'hit' then
-    local doors = LOCATIONS[location].doors
-    if not doors then return end
-    for i = 1, #doors do
-      local door = doors[i]
-      bridge.doorlock.setstate(src, door, not state)
-    end
-  elseif _type == 'hacked' then
-    for _, v in pairs(LOCATIONS) do
-      if v.doors then
-        for i = 1, #v.doors do
-          local door = v.doors[i]
-          bridge.doorlock.setstate(src, door, not state)
-        end
-      end
-    end
-  end
+  Cooldowns[location].locks = state and LOCK_COOLDOWN
+  set_door_state(location, _type, state)
 end
 
 ---@param player string|integer
