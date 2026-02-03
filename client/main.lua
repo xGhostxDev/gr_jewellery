@@ -3,6 +3,7 @@ local JEWELLERY_CASES <const> = glib.require(RES_NAME..'.shared.jewellery_cases'
 local LOCATIONS <const> = glib.require(RES_NAME..'.shared.store_locations') --[[@module 'gr_jewellery.shared.store_locations']]
 local start_case_models = {`des_jewel_cab_start`, `des_jewel_cab2_start`, `des_jewel_cab3_start`, `des_jewel_cab4_start`}
 local alarm = false
+local Zones = {}
 local isLoggedIn = false
 
 local firstAlarm, secondAlarm, smashing, locked  = false, false, false, false
@@ -293,6 +294,20 @@ local function init_script(resource)
   bridge.callback.trigger('jewellery:server:GetCaseStates', 1000, set_cases)
 end
 
+---@param resource string?
+local function deinit_script(resource)
+  if resource and type(resource) == 'string' and resource ~= RES_NAME then return end
+  RemoveAnimDict('missheist_jewel')
+  RemoveNamedPtfxAsset('scr_jewelheist')
+  RemoveNamedPtfxAsset('scr_ornate_heist')
+  StopAlarm('JEWEL_STORE_HEIST_ALARMS', true)
+  bridge.target.removemodel(start_case_models)
+  for i = 1, #Zones do
+    bridge.target.removezone(Zones[i])
+  end
+  isLoggedIn = false
+end
+
 -------------------------------- HANDLERS --------------------------------
 
 if bridge.core.getname() == 'qbx_core' then
@@ -301,6 +316,7 @@ else
   RegisterNetEvent(bridge.core.getevent('load'), init_script)
 end
 AddEventHandler('onResourceStart', init_script)
+AddEventHandler('onResourceStop', deinit_script)
 
 -- AddEventHandler(bridge.core.getevent('load'), function()
 -- 	bridge.callback.trigger('don-jewellery:server:GetJewelleryState', false, function(result)
@@ -334,16 +350,16 @@ end)
 --   createBlips()
 -- end)
 
-AddEventHandler('onResourceStop', function(resource)
-  if resource ~= GetCurrentResourceName() then return end
-  for i = 1, #Config.Vitrines do
-    if Config.Vitrines[i].isBusy then
-      TriggerServerEvent('don-jewellery:server:SetVitrineState', false, i)
-    end
-  end
-  TriggerServerEvent('don-jewellery:server:StoreHit', 'all', false)
-  removeBlips()
-end)
+-- AddEventHandler('onResourceStop', function(resource)
+--   if resource ~= GetCurrentResourceName() then return end
+--   for i = 1, #Config.Vitrines do
+--     if Config.Vitrines[i].isBusy then
+--       TriggerServerEvent('don-jewellery:server:SetVitrineState', false, i)
+--     end
+--   end
+--   TriggerServerEvent('don-jewellery:server:StoreHit', 'all', false)
+--   removeBlips()
+-- end)
 
 AddEventHandler('don-jewellery:client:SmashCase', function(case)
   bridge.callback.trigger('don-jewellery:server:GetCops', false, function(cops)
@@ -776,7 +792,7 @@ bridge.target.addmodel(start_case_models, {
 
 for k, v in pairs(LOCATIONS) do
   local thermite = v.thermite
-  bridge.target.addboxzone({
+  Zones[#Zones + 1] = bridge.target.addboxzone({
     center = thermite.coords,
     size = thermite.size,
     heading = thermite.heading,
@@ -792,13 +808,14 @@ for k, v in pairs(LOCATIONS) do
         return isLoggedIn and not hit
       end,
       onSelect = function()
-        TriggerEvent('don-jewellery:client:Thermite', k)
-      end
+        if not bridge.callback.await('jewellery:server:GetPolicePresence', false, k) then return end
+      end,
+      distance = 1.0
     }
   })
   local hack = v.hack
   if hack then
-    bridge.target.addboxzone({
+    Zones[#Zones + 1] = bridge.target.addboxzone({
       center = hack.coords,
       size = hack.size,
       heading = hack.heading,
