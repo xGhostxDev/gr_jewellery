@@ -1,6 +1,10 @@
 local RES_NAME <const> = bridge._RESOURCE
 local JEWELLERY_CASES <const> = glib.require(RES_NAME..'.shared.jewellery_cases') --[[@module 'gr_jewellery.shared.jewellery_cases']]
 local LOCATIONS <const> = glib.require(RES_NAME..'.shared.store_locations') --[[@module 'gr_jewellery.shared.store_locations']]
+local CONFIG <const> = glib.require(RES_NAME..'.client.config') --[[@module 'gr_jewellery.client.config']]
+local THERMITE <const> = CONFIG.minigames.thermite
+local HACK <const> = CONFIG.minigames.hack
+local WEAPONS <const> = CONFIG.weapons
 local start_case_models = {
   `des_jewel_cab_start`,
   `des_jewel_cab2_start`,
@@ -37,17 +41,6 @@ local function createBlips()
     BeginTextCommandSetBlipName(Config.Stores[1].label)
     EndTextCommandSetBlipName(Dealer)
   end
-end
-
-local function validWeapon()
-  local ped = PlayerPedId()
-  local pedWeapon = GetSelectedPedWeapon(ped)
-  for k, _ in pairs(Config.WhitelistedWeapons) do
-    if pedWeapon == k then
-      return true
-    end
-  end
-  return false
 end
 
 local function getCamID(k)
@@ -152,6 +145,19 @@ local function deinit_script(resource)
     bridge.target.removezone(Zones[i])
   end
   isLoggedIn = false
+end
+
+---@param ped integer?
+---@return boolean
+local function is_brandishing_weapon(ped)
+  ped = ped or PlayerPedId()
+  local weapon = GetSelectedPedWeapon(ped)
+  for i = 1, #WEAPONS do
+    if weapon == joaat(WEAPONS[i]) then
+      return true
+    end
+  end
+  return false
 end
 
 ---@param coords vector3
@@ -296,11 +302,11 @@ local function use_thermite(location, coords, heading)
       DetachEntity(thermite, true, true)
       FreezeEntityPosition(thermite, true)
       if not exports['glitch-minigames']:StartMemoryGame(
-        Config.ThermiteSettings.gridsize,
-        Config.ThermiteSettings.squareCount,
-        Config.ThermiteSettings.rounds,
-        Config.ThermiteSettings.showtime,
-        Config.ThermiteSettings.incorrectBlocks
+        THERMITE.size,
+        THERMITE.squares,
+        THERMITE.rounds,
+        THERMITE.time,
+        THERMITE.attempts
       ) then
         Wait(500)
         scene:clear(false, true)
@@ -355,10 +361,10 @@ local function hack_security(location)
   TaskPlayAnim(ped, dict, 'base', 8.0, -8.0, -1, 50, 1.0, false, false, false)
   Wait(2000)
 
-  if not leo and not exports['glitch-minigames']:StartPipePressureGame(Config.VarHackSettings.gridsize, Config.VarHackSettings.time) then
+  if not leo and not exports['glitch-minigames']:StartPipePressureGame(HACK.size, HACK.time) then
     bridge.notify.text(translate('error.fail_hack'), 'error')
   else
-    bridge.callback.trigger('jewellery:server:IsStoreVulnerable', false, function(hacked, hit)
+    bridge.callback.trigger('jewellery:server:IsStoreVulnerable', false, function()
       if not leo then
         bridge.notify.text(translate('success.hacked'), 'success')
         TriggerServerEvent('jewellery:server:SetStoreState', location, 'hacked', true)
@@ -405,9 +411,9 @@ bridge.target.addmodel(start_case_models, {
     name = 'jewel_heist',
     icon = 'fa fa-hand',
     label = translate('general.target_label'),
-    item = {'weapon_assaultrifle'},
+    item = WEAPONS,
     canInteract = function()
-      return isLoggedIn and not bridge.callback.await('jewellery:server:IsCaseBusy', false)
+      return isLoggedIn and not bridge.callback.await('jewellery:server:IsCaseBusy', false) and is_brandishing_weapon()
     end,
     onSelect = function()
       local location, case, entity = get_closest_case(GetOffsetFromEntityInWorldCoords(PlayerPedId(), 0.0, 0.25, 0.0))

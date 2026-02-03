@@ -6,17 +6,13 @@ description 'Grouse Jewellery Heist for FiveM with Multiple Stores, New Hacks & 
 version '1.3.5'
 url 'https://github.com/grouse-labs/gr_jewellery'
 
-shared_scripts {
-  '@gr_lib/init.lua',
-  '@bridge/init.lua',
-  'config.lua'
-}
+shared_scripts {'@gr_lib/init.lua', '@bridge/init.lua'}
 
 client_script 'client/main.lua'
 
 server_script 'server/main.lua'
 
-files {'shared/*.lua', 'locales/*.lua'}
+files {'shared/*.lua', 'client/config.lua', 'locales/*.lua'}
 
 dependencies {'/onesync', 'gr_lib', 'bridge', 'glitch-minigames'}
 
