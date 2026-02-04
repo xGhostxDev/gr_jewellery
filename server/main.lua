@@ -14,6 +14,7 @@ local Cases = {}
 local Stores = {}
 local PresenceCache = {}
 local Cooldowns = {}
+local translate = glib.locale.translate
 
 -------------------------------- FUNCTIONS --------------------------------
 
@@ -142,7 +143,7 @@ local function give_case_reward(player)
   if bridge.core.addplayeritem(player, item, amount) then
     bridge.notify.item(player, item, amount)
   else
-    bridge.notify.text(player, Lang:t('error.too_much'), 'error')
+    bridge.notify.text(player, translate('error.too_much'), 'error')
   end
 end
 
