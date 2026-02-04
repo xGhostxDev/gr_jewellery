@@ -24,25 +24,26 @@ local translate = glib.locale.translate
 ---@param and_sec boolean?
 local function set_door_state(location, _type, state, and_sec)
   local src = source ~= -1 and source or GetPlayers()[1]
+  if not IsSrcAPlayer(src) then return end
   if _type == 'hit' then
-  local doors = LOCATIONS[location]?.doors
-  if not doors then return end
-  bridge.doorlock.setstate(src, doors[1], not state)
-  Stores[location].locked = not state
-  if and_sec then
-    bridge.doorlock.setstate(src, doors[2], not state)
-  end
-elseif _type == 'hacked' then
-  for k, v in pairs(LOCATIONS) do
-    if v.doors then
-      for i = 1, #v.doors do
-        local door = v.doors[i]
-        bridge.doorlock.setstate(src, door, not state)
+    local doors = LOCATIONS[location]?.doors
+    if not doors then return end
+    bridge.doorlock.setstate(src, doors[1], not state)
+    Stores[location].locked = not state
+    if and_sec then
+      bridge.doorlock.setstate(src, doors[2], not state)
+    end
+  elseif _type == 'hacked' then
+    for k, v in pairs(LOCATIONS) do
+      if v.doors then
+        for i = 1, #v.doors do
+          local door = v.doors[i]
+          bridge.doorlock.setstate(src, door, not state)
+        end
+        Stores[k].locked = true
       end
-      Stores[k].locked = true
     end
   end
-end
 end
 
 ---@return boolean open
@@ -60,7 +61,7 @@ local function main_thread()
       if _types.locks and _types.locks ~= 0 then
         _types.locks -= 1
         if _types.locks == 0 then
-          set_door_state(location, 'hit', false)
+          set_door_state(location, 'hacked', false)
           Stores[location].hit = false
           Stores[location].hacked = false
         end
