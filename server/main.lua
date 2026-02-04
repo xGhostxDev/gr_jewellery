@@ -157,7 +157,7 @@ local function set_case_state(location, case, _type, state)
   if not bridge.core.getplayer(src) then return end
   if not PresenceCache[src] then return end -- Triggered without using target
   if not JEWELLERY_CASES[location][case] then return end
-  if #(JEWELLERY_CASES[location][case].coords - GetEntityCoords(GetPlayerPed(src))) > 1.0 then return end
+  if #(JEWELLERY_CASES[location][case].coords - GetEntityCoords(GetPlayerPed(src))) > 1.5 then return end
   Cases[location][case][_type] = state
   if _type ~= 'busy' then
     Cooldowns[location].cases[case] = state and CASE_COOLDOWN
