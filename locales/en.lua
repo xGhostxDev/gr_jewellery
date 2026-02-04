@@ -16,9 +16,8 @@ return {
     close_warning = 'Hurry! The store will close in 1 minute'
   },
   general = {
-    store_label = 'Vangelico Jewellers',
-    target_label = 'Smash the display case',
+    target_label = 'Smash Display Case',
     thermite_label = 'Blow Fuse Box',
-    hack_label = 'Hack Security System'
+    hack_label = 'Disable Alarm System'
   }
 }
