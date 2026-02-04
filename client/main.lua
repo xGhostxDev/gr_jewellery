@@ -1,4 +1,5 @@
 local RES_NAME <const> = bridge._RESOURCE
+local DEBUG <const> = bridge._DEBUG
 local JEWELLERY_CASES <const> = glib.require(RES_NAME..'.shared.jewellery_cases') --[[@module 'gr_jewellery.shared.jewellery_cases']]
 local LOCATIONS <const> = glib.require(RES_NAME..'.shared.store_locations') --[[@module 'gr_jewellery.shared.store_locations']]
 local CONFIG <const> = glib.require(RES_NAME..'.client.config') --[[@module 'gr_jewellery.client.config']]
@@ -118,18 +119,13 @@ local function set_cases(cases)
   end
 end
 
----@param resource string?
-local function init_script(resource)
-  if resource and type(resource) == 'string' and resource ~= RES_NAME then return end
-  isLoggedIn = LocalPlayer.state.isLoggedIn or IsPlayerPlaying(PlayerId())
-  bridge.callback.trigger('jewellery:server:GetCaseStates', 1000, set_cases)
-  if GlobalState['jewellery:alarm'] then
-    PrepareAlarm('JEWEL_STORE_HEIST_ALARMS')
-    repeat
-      Wait(0)
-    until PrepareAlarm('JEWEL_STORE_HEIST_ALARMS')
-    StartAlarm('JEWEL_STORE_HEIST_ALARMS', true)
-  end
+---@param skip boolean?
+local function play_jewel_alarm(skip)
+  PrepareAlarm('JEWEL_STORE_HEIST_ALARMS')
+  repeat
+    Wait(0)
+  until PrepareAlarm('JEWEL_STORE_HEIST_ALARMS')
+  StartAlarm('JEWEL_STORE_HEIST_ALARMS', skip == true)
 end
 
 ---@param resource string?
@@ -375,17 +371,94 @@ local function hack_security(location)
   RemoveAnimDict(dict)
 end
 
+---@param resource string?
+local function init_script(resource)
+  if resource and type(resource) == 'string' and resource ~= RES_NAME then return end
+  isLoggedIn = LocalPlayer.state.isLoggedIn or IsPlayerPlaying(PlayerId())
+  bridge.callback.trigger('jewellery:server:GetCaseStates', 1000, set_cases)
+  if GlobalState['jewellery:alarm'] then
+    play_jewel_alarm(true)
+  end
+  bridge.target.addmodel(start_case_models, {
+    {
+      name = 'jewel_heist',
+      icon = 'fa fa-hand',
+      label = translate('general.target_label'),
+      item = WEAPONS,
+      canInteract = function()
+        return isLoggedIn and not bridge.callback.await('jewellery:server:IsCaseBusy', false) and is_brandishing_weapon()
+      end,
+      onSelect = function()
+        local location, case, entity = get_closest_case(GetOffsetFromEntityInWorldCoords(PlayerPedId(), 0.0, 0.25, 0.0))
+        if not bridge.callback.await('jewellery:server:GetPolicePresence', false, location) then return end
+
+        smash_case(location, case, entity)
+      end,
+      distance = 1.5
+    }
+  })
+
+  for k, v in pairs(LOCATIONS) do
+    local thermite = v.thermite
+    Zones[#Zones + 1] = bridge.target.addboxzone({
+      center = thermite.coords,
+      size = thermite.size,
+      heading = thermite.heading,
+      debug = DEBUG
+    }, {
+      {
+        name = 'jewelthermite'..k,
+        icon = 'fas fa-bug',
+        label = translate('general.thermite_label'),
+        item = 'thermite',
+        canInteract = function()
+          local _, hit = bridge.callback.await('jewellery:server:IsStoreVulnerable', false, k)
+          return isLoggedIn and not hit
+        end,
+        onSelect = function()
+          if not bridge.callback.await('jewellery:server:GetPolicePresence', false, k) then return end
+
+          use_thermite(k, thermite.coords, thermite.heading)
+        end,
+        distance = 2.5
+      }
+    })
+    local hack = v.hack
+    if hack then
+      Zones[#Zones + 1] = bridge.target.addboxzone({
+        center = hack.coords,
+        size = hack.size,
+        heading = hack.heading,
+        debug = DEBUG
+      }, {
+        {
+          name = 'jewelpc1',
+          icon = 'fas fa-bug',
+          label = translate('general.hack_label'),
+          item = 'phone',
+          canInteract = function()
+            local hacked = bridge.callback.await('jewellery:server:IsStoreVulnerable', false, k)
+            return isLoggedIn and not hacked
+          end,
+          onSelect = function()
+            if not bridge.callback.await('jewellery:server:GetPolicePresence', false, k) then return end
+
+            hack_security(k)
+          end,
+          distance = 1.0,
+        }
+      })
+    end
+  end
+end
+
 --------------------- HANDLERS ---------------------
 
 AddEventHandler('onResourceStart', init_script)
 AddEventHandler('onResourceStop', deinit_script)
 AddStateBagChangeHandler('jewellery:alarm', 'global', function(_, _, state)
   if state then
-    PrepareAlarm('JEWEL_STORE_HEIST_ALARMS')
-    repeat
-      Wait(0)
-    until PrepareAlarm('JEWEL_STORE_HEIST_ALARMS')
-    StartAlarm('JEWEL_STORE_HEIST_ALARMS', false)
+    play_jewel_alarm()
   else
     StopAlarm('JEWEL_STORE_HEIST_ALARMS', true)
   end
@@ -401,77 +474,3 @@ end
 
 RegisterNetEvent(bridge.core.getevent('unload'), deinit_script)
 RegisterNetEvent('jewellery:client:SetCaseState', set_case_state)
-
--------------------------------- TARGET --------------------------------
-
-bridge.target.addmodel(start_case_models, {
-  {
-    name = 'jewel_heist',
-    icon = 'fa fa-hand',
-    label = translate('general.target_label'),
-    item = WEAPONS,
-    canInteract = function()
-      return isLoggedIn and not bridge.callback.await('jewellery:server:IsCaseBusy', false) and is_brandishing_weapon()
-    end,
-    onSelect = function()
-      local location, case, entity = get_closest_case(GetOffsetFromEntityInWorldCoords(PlayerPedId(), 0.0, 0.25, 0.0))
-      if not bridge.callback.await('jewellery:server:GetPolicePresence', false, location) then return end
-
-      smash_case(location, case, entity)
-    end,
-    distance = 1.0
-  }
-})
-
-for k, v in pairs(LOCATIONS) do
-  local thermite = v.thermite
-  Zones[#Zones + 1] = bridge.target.addboxzone({
-    center = thermite.coords,
-    size = thermite.size,
-    heading = thermite.heading,
-    debug = false
-  }, {
-    {
-      name = 'jewelthermite'..k,
-      icon = 'fas fa-bug',
-      label = translate('general.thermite_label'),
-      item = 'thermite',
-      canInteract = function()
-        local _, hit = bridge.callback.await('jewellery:server:IsStoreVulnerable', false, k)
-        return isLoggedIn and not hit
-      end,
-      onSelect = function()
-        if not bridge.callback.await('jewellery:server:GetPolicePresence', false, k) then return end
-
-        use_thermite(k, thermite.coords, thermite.heading)
-      end,
-      distance = 1.0
-    }
-  })
-  local hack = v.hack
-  if hack then
-    Zones[#Zones + 1] = bridge.target.addboxzone({
-      center = hack.coords,
-      size = hack.size,
-      heading = hack.heading,
-      debug = false
-    }, {
-      {
-        name = 'jewelpc1',
-        icon = 'fas fa-bug',
-        label = translate('general.hack_label'),
-        item = 'phone',
-        canInteract = function()
-          local hacked = bridge.callback.await('jewellery:server:IsStoreVulnerable', false, k)
-          return isLoggedIn and not hacked
-        end,
-        onSelect = function()
-          if not bridge.callback.await('jewellery:server:GetPolicePresence', false, k) then return end
-
-          hack_security(k)
-        end,
-        distance = 1.0,
-      }
-    })
-  end
-end
