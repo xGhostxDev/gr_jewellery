@@ -4,7 +4,7 @@ return {
     cases = 10,
     alarm = 5
   },
-  autolock = false,
+  autolock = true,
   hours = {
     open = 9,
     close = 17
