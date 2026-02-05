@@ -11,6 +11,7 @@ Jewellery Heist for FiveM with Multiple Stores, New Hacks & Auto Door Lock Featu
 - Hacking the security system computer has *extra benefits*, LEO's by default can use it's `disable` feature.
 - Thermite the store fusebox to unlock the front doors!
 - Alarms & Alerts have different a chance to trigger depending on the time of day!
+- All case effects are synced across the server, so all players see & hear the same thing.
 
 ## Table of Contents
 
