@@ -23,11 +23,7 @@ Jewellery Heist for FiveM with Multiple Stores, New Hacks & Auto Door Lock Featu
       - [Dependencies](#dependencies)
         - [Glitch Minigames](#glitch-minigames)
         - [Grouse](#grouse)
-        - [Frameworks](#frameworks)
-        - [Inventories](#inventories)
-        - [Targetting](#targetting)
-        - [Doorlocks](#doorlocks)
-        - [Weather](#weather)
+        - [Server Specific](#server-specific)
       - [Initial Setup](#initial-setup)
     - [Translations](#translations)
     - [Store MLO's](#store-mlos)
@@ -38,6 +34,7 @@ Jewellery Heist for FiveM with Multiple Stores, New Hacks & Auto Door Lock Featu
       - [Client Config](#client-config)
       - [Doorlock Presets](#doorlock-presets)
         - [qb-doorlock](#qb-doorlock)
+        - [ox\_doorlock](#ox_doorlock)
     - [Support](#support)
 
 ### Credits
@@ -57,55 +54,41 @@ Jewellery Heist for FiveM with Multiple Stores, New Hacks & Auto Door Lock Featu
 
 #### Dependencies
 
-##### Glitch Minigames
+**This script requires the following scripts to be installed:**
 
-**This script requires the following script to be installed:**
+##### Glitch Minigames
 
 - [glitch_minigames](https://github.com/Gl1tchStudios/glitch-minigames/releases/tag/v2.0.0)
 
 ##### Grouse
 
-**This script requires the following scripts to be installed:**
-
 - [gr_lib](https://github.com/grouse-labs/gr_lib)
 - [bridge](https://github.com/grouse-labs/bridge)
 - [gr_blips](https://github.com/grouse-labs/gr_blips)
 
-##### Frameworks
+##### Server Specific
 
-**Depending on your Framework, you will need one of the following dependencies:**
+| Framework   | Callback | Target    | Notify      | Doorlock    | Weather             |
+| ----------- | -------- | --------- | ----------- | ----------- | ------------------- |
+| qb-core     | ox_lib   | ox_target | qb-core     | ox_doorlock | Renewed-Weathersync |
+| es_extended | gr_lib   | qb-target | es_extended | qb-doorlock | qb-weathersync      |
+| qbx_core    |          |           |             |             |                     |
 
-- [qb-core](https://github.com/qbcore-framework/qb-core)
-- [es_extended](https://github.com/esx-framework/esx_core)
-- [qbx_core](https://github.com/Qbox-project/qbx_core)
-
-##### Inventories
-
-**Depending on your Inventory, you will need one of the following dependencies:**
-
-- [qb-inventory](https://github.com/qbcore-framework/qb-inventory)
-- [es_extended](https://github.com/esx-framework/esx_core)
-- [ox_inventory](https://github.com/overextended/ox_inventory)
-
-##### Targetting
-
-**Depending on your Targetting system, you will need one of the following dependencies:**
-
-- [ox_target](https://github.com/overextended/ox_target)
-- [qb-target](https://github.com/qbcore-framework/qb-target)
-
-##### Doorlocks
-
-**Depending on your Doorlock system, you will need one of the following dependencies:**
-
-- [ox_doorlock](https://github.com/overextended/ox_doorlock)
-- [qb-doorlock](https://github.com/qbcore-framework/qb-doorlock)
-
-##### Weather
-
-**Depending on your Weather system, you will need one of the following dependencies:**
-
-- [qb-weathersync](https://github.com/qbcore-framework/qb-weathersync)
+| Resource                                                                      | Version |
+| :---------------------------------------------------------------------------- | :-----: |
+| [qb-core](https://github.com/qbcore-framework/qb-core)                        | 1.3.0   |
+| [es_extended](https://github.com/esx-framework/esx_core)                      | 1.13.4  |
+| [qbx_core](https://github.com/Qbox-project/qbx_core)                          | 1.23.0  |
+| [ox_lib](https://github.com/CommunityOx/ox_lib)                               | 3.30.6  |
+| [gr_lib](https://github.com/grouse-labs/gr_lib)                               | 1.1.1   |
+| [ox_inventory](https://github.com/CommunityOx/ox_inventory)                   | 2.44.8  |
+| [qb-inventory](https://github.com/qbcore-framework/qb-inventory)              | 2.0.0   |
+| [ox_target](https://github.com/CommunityOx/ox_target)                         | 1.17.2  |
+| [qb-target](https://github.com/qbcore-framework/qb-target)                    | 5.5.0   |
+| [ox_doorlock](https://github.com/CommunityOx/ox_doorlock)                     | 1.21.0  |
+| [qb-doorlock](https://github.com/qbcore-framework/qb-doorlock)                | 2.0.0   |
+| [Renewed-Weathersync](https://github.com/Renewed-Scripts/Renewed-Weathersync) | 1.1.8   |
+| [qb-weathersync](https://github.com/qbcore-framework/qb-weathersync)          | 2.1.1   |
 
 #### Initial Setup
 
@@ -340,7 +323,84 @@ Config.DoorList['jewellery-palsec'] = {
 }
 ```
 
+##### ox_doorlock
+
+If using a default Qbox server, the main Vangelico store door will already be configured as `vangelico_jewellery`, so you only need to add the other 5 doors. You can change the door names as you like, just make sure to update the store_locations file accordingly.
+
+![ox_doorlock config example](https://github.com/grouse-labs/.github/blob/main/profile/assets/jewellery_ox_doorlock.png?raw=true)
+
+Create a file in `ox_doorlock/convert/` with the following code:
+
+```lua
+Config.DoorList['jewellery-citysec'] = {
+  objYaw = 36.000022888184,
+  doorRate = 1.0,
+  locked = true,
+  fixText = false,
+  pickable = true,
+  authorizedJobs = { ['police'] = 0 },
+  needsAllItems = false,
+  objCoords = vec3(-629.133850, -230.151703, 38.206585),
+  distance = 1.5,
+  doorType = 'door',
+  objName = 1335309163,
+}
+
+Config.DoorList['jewellery-grapemain'] = {
+  doorType = 'double',
+  locked = true,
+  cantUnlock = true,
+  doorLabel = 'main',
+  distance = 2,
+  doors = {
+    {objName = 9467943, objYaw = 98.17839050293, objCoords = vec3(1653.285522, 4884.148438, 42.309845)},
+    {objName = 1425919976, objYaw = 98.17839050293, objCoords = vec3(1653.655518, 4881.573730, 42.309845)}
+  },
+  doorRate = 1.0,
+}
+
+Config.DoorList['jewellery-grapesec'] = {
+  pickable = true,
+  objCoords = vec3(1648.274902, 4877.423340, 42.309898),
+  objName = 1335309163,
+  doorRate = 1.0,
+  distance = 1,
+  authorizedJobs = { ['police'] = 0 },
+  doorType = 'door',
+  objYaw = 188.17839050293,
+  fixText = false,
+  doorLabel = 'sec',
+  locked = true,
+}
+
+Config.DoorList['jewellery-palmain'] = {
+  doorType = 'double',
+  locked = true,
+  cantUnlock = true,
+  doorLabel = 'main',
+  distance = 2,
+  doors = {
+    {objName = 1425919976, objYaw = 314.90930175781, objCoords = vec3(-383.837921, 6044.059082, 31.658920)},
+    {objName = 9467943, objYaw = 314.90930175781, objCoords = vec3(-382.001617, 6042.216797, 31.658920)}
+  },
+  doorRate = 1.0,
+}
+
+Config.DoorList['jewellery-palsec'] = {
+  doorType = 'door',
+  locked = true,
+  doorRate = 1.0,
+  pickable = true,
+  distance = 1.5,
+  objYaw = 44.909275054932,
+  fixText = false,
+  authorizedJobs = { ['police'] = 0 },
+  objCoords = vec3(-382.007721, 6050.603027, 31.658974),
+  objName = 1335309163,
+}
+```
+
 ### Support
 
-- Join the [Grouse Labs discord](https://discord.gg/pmywChNQ5m).
+- Join the [Grouse Labs 🐀 discord](https://discord.gg/pmywChNQ5m).
 - Use the appropriate support forum!
