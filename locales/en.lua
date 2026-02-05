@@ -16,6 +16,12 @@ return {
     close_warning = 'Hurry! The store will close in 1 minute'
   },
   general = {
+    store_label = 'Vangelico Jewellers', -- Comment out if you want to use unique labels for each store
+    -- store_labels = { -- Comment out if you want to use the same label for each store
+    --   main = 'Little Portola Vangelico',
+    --   grape = 'Grapeseed Vangelico',
+    --   paleto = 'Paleto Vangelico'
+    -- },
     target_label = 'Smash Display Case',
     thermite_label = 'Blow Fuse Box',
     hack_label = 'Disable Alarm System'
