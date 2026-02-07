@@ -59,6 +59,9 @@ local translate = glib.locale.translate
 --   exports[Config.Skills.system]:UpdateSkill(Config.Skills[hack].skill, xp)
 -- end
 
+-- Worried if this can be exploited by a client triggering it with random location/index/state values.<br>
+-- I have server checks in place for the important stuff like police dispatch and rewards so should be fine?<br>
+-- Possibly move to statebags if issues arise.
 ---@param location string
 ---@param index integer
 ---@param state boolean
@@ -359,7 +362,7 @@ local function init_script(resource)
   end
   bridge.target.addmodel(start_case_models, {
     {
-      name = 'jewel_heist',
+      name = 'jewellery:case',
       icon = 'fa fa-hand',
       label = translate('general.target_label'),
       canInteract = function()
@@ -394,7 +397,7 @@ local function init_script(resource)
       debug = DEBUG
     }, {
       {
-        name = 'jewelthermite'..k,
+        name = 'jewellery:thermite:'..k,
         icon = 'fas fa-bug',
         label = translate('general.thermite_label'),
         item = 'thermite',
@@ -419,7 +422,7 @@ local function init_script(resource)
         debug = DEBUG
       }, {
         {
-          name = 'jewelpc1',
+          name = 'jewellery:hack:'..k,
           icon = 'fas fa-bug',
           label = translate('general.hack_label'),
           item = 'phone',
