@@ -12,6 +12,7 @@ local start_case_models = {
   `des_jewel_cab3_start`,
   `des_jewel_cab4_start`
 }
+local Blips = {}
 local Zones = {}
 local isLoggedIn = false
 local translate = glib.locale.translate
@@ -122,9 +123,8 @@ local function deinit_script(resource)
   RemoveNamedPtfxAsset('scr_ornate_heist')
   StopAlarm('JEWEL_STORE_HEIST_ALARMS', true)
   bridge.target.removemodel(start_case_models)
-  for i = 1, #Zones do
-    bridge.target.removezone(Zones[i])
-  end
+  for i = 1, #Zones do bridge.target.removezone(Zones[i]) end
+  for i = 1, #Blips do exports.gr_blips:remove(Blips[i]) end
   isLoggedIn = false
 end
 
@@ -380,7 +380,7 @@ local function init_script(resource)
 
   for k, v in pairs(LOCATIONS) do
     local coords = v.coords
-    exports.gr_blips:new('coord', {
+    Blips[#Blips + 1] = exports.gr_blips:new('coord', {
       coords = coords
     }, {
       sprite = 617,
