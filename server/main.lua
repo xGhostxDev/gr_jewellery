@@ -169,6 +169,16 @@ local function set_case_state(location, case, _type, state)
 end
 
 ---@param location string
+local function thermite_effect(location)
+  local src = source
+  if not bridge.core.getplayer(src) then return end
+  if not PresenceCache[src] then return end -- Triggered without using target
+  if not LOCATIONS[location] then return end
+  if #(LOCATIONS[location].thermite.coords - GetEntityCoords(GetPlayerPed(src))) > 1.5 then return end
+  TriggerClientEvent('jewellery:client:SyncThermite', -1, location)
+end
+
+---@param location string
 ---@param state boolean
 local function set_alarm_state(location, state)
   local src = source
@@ -259,6 +269,7 @@ end
 AddEventHandler('onResourceStart', init_script)
 AddEventHandler('onResourceStop', deinit_script)
 RegisterServerEvent('jewellery:server:SetCaseState', set_case_state)
+RegisterServerEvent('jewellery:server:SyncThermite', thermite_effect)
 RegisterServerEvent('jewellery:server:VangelicoAlarm', set_alarm_state)
 RegisterServerEvent('jewellery:server:SetStoreState', set_store_state)
 

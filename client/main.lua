@@ -107,6 +107,20 @@ local function set_cases(cases)
   end
 end
 
+---@param location string
+local function thermite_effect(location)
+  if not LOCATIONS[location].thermite then return end
+  local coords = LOCATIONS[location].thermite.coords
+  local ptfx = 'scr_ornate_heist'
+  local ptfx_handle = 0
+  if not glib.stream.ptfx(ptfx) then return end
+  UseParticleFxAsset(ptfx)
+  ptfx_handle = StartParticleFxLoopedAtCoord('scr_heist_ornate_thermal_burn', coords.x, coords.y + 1.0, coords.z, 0.0, 0.0, 0.0, 1.0, false, false, false, false)
+  Wait(5000)
+  StopParticleFxLooped(ptfx_handle, false)
+  RemoveNamedPtfxAsset(ptfx)
+end
+
 ---@async
 ---@param location string
 ---@param index integer
@@ -302,8 +316,6 @@ local function use_thermite(location, coords, heading)
       }
     }
   })
-  local ptfx = 'scr_ornate_heist'
-  local ptfx_handle = 0
   local abort = false
   scene:start(function(phase)
     if phase >= 0.4 and IsEntityAttached(thermite) then
@@ -322,10 +334,7 @@ local function use_thermite(location, coords, heading)
         bridge.notify.text(translate('error.fail_therm'), 'error')
         return
       end
-      Wait(500)
-      if not glib.stream.ptfx(ptfx) then return end
-      UseParticleFxAsset(ptfx)
-      ptfx_handle = StartParticleFxLoopedAtCoord('scr_heist_ornate_thermal_burn', coords.x, coords.y + 1.0, coords.z, 0.0, 0.0, 0.0, 1.0, false, false, false, false)
+      TriggerServerEvent('jewellery:server:SyncThermite', location)
     end
   end)
   if not abort then
@@ -349,8 +358,6 @@ local function use_thermite(location, coords, heading)
     end, location)
     Wait(5000)
     scene:clear(false, true)
-    StopParticleFxLooped(ptfx_handle, false)
-    RemoveNamedPtfxAsset(ptfx)
   end
   DeleteObject(thermite)
   RemoveAnimDict(dict)
@@ -500,3 +507,4 @@ end
 
 RegisterNetEvent(bridge.core.getevent('unload'), deinit_script)
 RegisterNetEvent('jewellery:client:SetCaseState', set_case_state)
+RegisterNetEvent('jewellery:client:SyncThermite', thermite_effect)
