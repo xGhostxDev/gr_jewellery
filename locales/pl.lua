@@ -25,5 +25,10 @@ return {
     target_label = 'Rozwal zabezpieczenie',
     thermite_label = 'Wysadż bezpieczniki',
     hack_label = 'Wyłącz alarm'
+  },
+  debug = {
+    enable = '%{version} - tryb debugowania %{state}!^7',
+    no_doors = 'Nie ma dzwi dla tej lokalizacji %{location}',
+    no_door_i = 'Nie ma dzwi #%<index>.d dla lokalizacji %{location}'
   }
 }
