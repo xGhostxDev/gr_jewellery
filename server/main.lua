@@ -12,6 +12,7 @@ local AUTOLOCK <const> = CONFIG.autolock
 local PATROLS_CONFIG <const> = CONFIG.patrols
 local REWARDS <const> = CONFIG.rewards
 local PATROLS <const> = glib.require(RES_NAME..'.server.patrols') --[[@module 'gr_jewellery.server.patrols']]
+local WEATHER_PRESENT <const> = pcall(function() return bridge.weather end)
 local Cases = {}
 local Stores = {}
 local PresenceCache = {}
@@ -51,6 +52,7 @@ end
 
 ---@return boolean open
 local function is_store_open()
+  if not WEATHER_PRESENT then return false end
   local hour = bridge.weather.gettime()
   return hour >= OPEN_HOUR and hour < CLOSE_HOUR
 end
