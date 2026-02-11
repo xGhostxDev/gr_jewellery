@@ -9,7 +9,10 @@ local ALARM_COOLDOWN <const> = CONFIG.cooldowns.alarm * 60
 local OPEN_HOUR <const> = CONFIG.hours.open
 local CLOSE_HOUR <const> = CONFIG.hours.close
 local AUTOLOCK <const> = CONFIG.autolock
+local PATROLS_CONFIG <const> = CONFIG.patrols
 local REWARDS <const> = CONFIG.rewards
+local PATROLS <const> = glib.require(RES_NAME..'.server.patrols') --[[@module 'gr_jewellery.server.patrols']]
+local WEATHER_PRESENT <const> = pcall(function() return bridge.weather end)
 local Cases = {}
 local Stores = {}
 local PresenceCache = {}
@@ -27,7 +30,7 @@ local function set_door_state(location, _type, state, and_sec)
   if not IsSrcAPlayer(src) then return end
   if _type == 'hit' then
     local doors = LOCATIONS[location]?.doors
-    if not doors or not doors[1] then error('No doors set for location '..location) end
+    if not doors or not doors[1] then error(translate('debug.no_doors', {location = location})) end
     bridge.doorlock.setstate(src, doors[1], not state)
     Stores[location].locked = not state
     if and_sec and doors[2] then
@@ -38,7 +41,7 @@ local function set_door_state(location, _type, state, and_sec)
       if v.doors then
         for i = 1, #v.doors do
           local door = v.doors[i]
-          if not door then error('No door #'..i..' set for location '..k) end
+          if not door then error(translate('debug.no_door_i', {index = i, location = location})) end
           bridge.doorlock.setstate(src, door, not state)
         end
         Stores[k].locked = not state
@@ -49,6 +52,7 @@ end
 
 ---@return boolean open
 local function is_store_open()
+  if not WEATHER_PRESENT then return false end
   local hour = bridge.weather.gettime()
   return hour >= OPEN_HOUR and hour < CLOSE_HOUR
 end
@@ -56,6 +60,11 @@ end
 ---@async
 local function main_thread()
   GlobalState:set('jewellery:alarm', false, true)
+  if PATROLS_CONFIG.enable then
+    for _, v in pairs(PATROLS) do
+      exports[PATROLS_CONFIG.name]:createpatrol(v)
+    end
+  end
   while true do
     Wait(1000)
     for location, _types in pairs(Cooldowns) do
@@ -122,7 +131,7 @@ local function init_script(resource)
     glib.github.check(resource, 'grouse-labs', 'gr_jewellery')
     local version = GetResourceMetadata(resource, 'version', 0)
     version = version:match('(%d+%.%d+)'):gsub('(%d+)%.(%d+)', 'v^4%1^7.^4%2^7')
-    bridge.print(version..' - Debug Mode '..(DEBUG_MODE and '^2Enabled' or '^1Disabled')..'!^7')
+    bridge.print(translate('debug.enable', {version = version, state = DEBUG_MODE and '^2Enabled' or '^1Disabled'}))
     main_thread()
   end)
 end
@@ -134,7 +143,7 @@ local function deinit_script(resource)
   Stores = {}
   PresenceCache = {}
   Cooldowns = {}
-  GlobalState['jewellery:alarm'] = false
+  for k in pairs(LOCATIONS) do GlobalState:set(('jewellery:alarm:%s'):format(k), false, true) end
 end
 
 ---@param player string|integer
@@ -169,6 +178,16 @@ local function set_case_state(location, case, _type, state)
 end
 
 ---@param location string
+local function thermite_effect(location)
+  local src = source
+  if not bridge.core.getplayer(src) then return end
+  if not PresenceCache[src] then return end -- Triggered without using target
+  if not LOCATIONS[location] then return end
+  if #(LOCATIONS[location].thermite.coords - GetEntityCoords(GetPlayerPed(src))) > 1.5 then return end
+  TriggerClientEvent('jewellery:client:SyncThermite', -1, location)
+end
+
+---@param location string
 ---@param state boolean
 local function set_alarm_state(location, state)
   local src = source
@@ -176,7 +195,7 @@ local function set_alarm_state(location, state)
   if not PresenceCache[src] then return end -- Triggered without using target
   if not LOCATIONS[location] then return end
   if #(LOCATIONS[location].coords - GetEntityCoords(GetPlayerPed(src))) > 100.0 then return end
-  GlobalState:set('jewellery:alarm', state, true)
+  GlobalState:set(('jewellery:alarm:%s'):format(location), state, true)
   Cooldowns[location].alarm = state and ALARM_COOLDOWN
 end
 
@@ -190,9 +209,10 @@ local function set_store_state(location, _type, state)
   if not LOCATIONS[location] then return end
   if #(LOCATIONS[location].coords - GetEntityCoords(GetPlayerPed(src))) > 100.0 then return end
   if _type == 'hit' and state then
-    if not bridge.core.doesplayerhaveitem(src, 'thermite') then return end -- Triggered without item, definitely cheating
-    bridge.core.removeplayeritem(src, 'thermite', 1)
-    bridge.notify.item(src, 'thermite', -1)
+    local item = LOCATIONS.thermite.item
+    if not bridge.core.doesplayerhaveitem(src, item) then return end -- Triggered without item, definitely cheating
+    bridge.core.removeplayeritem(src, item, 1)
+    bridge.notify.item(src, item, -1)
   end
   Stores[location][_type] = state
   Cooldowns[location].locks = state and LOCK_COOLDOWN
@@ -259,6 +279,7 @@ end
 AddEventHandler('onResourceStart', init_script)
 AddEventHandler('onResourceStop', deinit_script)
 RegisterServerEvent('jewellery:server:SetCaseState', set_case_state)
+RegisterServerEvent('jewellery:server:SyncThermite', thermite_effect)
 RegisterServerEvent('jewellery:server:VangelicoAlarm', set_alarm_state)
 RegisterServerEvent('jewellery:server:SetStoreState', set_store_state)
 
